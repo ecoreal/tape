@@ -87,6 +87,8 @@ tape demo-session.jsonl --frame 8 --plain   # render any moment to stdout
 | `J/K` | scroll detail | `g` / `G` | first / last |
 | `?` | help | `q` | quit |
 
+Also: `tape stats [file]` (cost/tokens summary) and `tape diff a.jsonl b.jsonl` (where two runs split).
+
 ## 📸 Showcase
 
 <!-- GIF 占位：用 vhs 从 demo 生成 15s 录屏，放 docs/demo.gif -->
