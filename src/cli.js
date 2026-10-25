@@ -29,6 +29,20 @@ export async function main(argv) {
   if (argv[0] === '-v' || argv[0] === '--version') { console.log(VERSION); return; }
   const isStats = argv[0] === 'stats';
   if (isStats) argv = argv.slice(1);
+  if (argv[0] === 'grep') {
+    const query = argv.slice(1).find(a => !a.startsWith('-'));
+    if (!query) { console.error('tape grep: need a query — tape grep ECONNRESET'); process.exitCode = 1; return; }
+    const { grepSessions } = await import('./grep.js');
+    const hits = grepSessions(query);
+    if (!hits.length) { console.log(`no local session mentions "${query}"`); return; }
+    console.log(`"${query}" appears in ${hits.length} session(s):\n`);
+    for (const h of hits) {
+      const when = new Date(h.mtime).toISOString().slice(0, 16).replace('T', ' ');
+      console.log(`  ${when}  ${String(h.hits).padStart(2)} hits  ${h.title.slice(0, 40).padEnd(42)} ${h.path}`);
+    }
+    console.log(`\nopen one with: tape <path>   then / to jump between matches`);
+    return;
+  }
   if (argv[0] === 'diff') {
     const [, fa, fb] = argv;
     if (!fa || !fb) { console.error('tape diff: need two files — tape diff a.jsonl b.jsonl'); process.exitCode = 1; return; }
