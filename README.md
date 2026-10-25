@@ -122,6 +122,23 @@ tape demo-session.jsonl --frame 8 --plain   # render any moment to stdout
 
 <!-- 更多展示位：docs/screenshot-search.png（搜索 ECONNRESET 跳转）· docs/screenshot-real.png（真实 Claude Code 会话） -->
 
+### 📊 `tape stats` — what that session actually cost you
+
+```
+⏪ tape — stats  ~/.claude/projects/<project>/<session>.jsonl
+
+steps        14  user 2 · tool_use 5 · tool_result 5 · assistant 2
+duration     18m47s
+cost         $0.139
+tokens       in 52.9k · out 2.3k
+models       z-ai/glm-5.3 (7)
+top tools    Bash 4 · Read 1
+
+activity     ▁▁▄▁▁▁▄█▁▁▁▄▆▁
+```
+
+*(real output from a real session — every number was already sitting in the JSONL)*
+
 ## 🆚 Why tape
 
 | today's options | the pain |
