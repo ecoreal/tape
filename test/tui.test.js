@@ -16,8 +16,9 @@ test('arrow keys and special keys decode correctly', () => {
   assert.equal(decodeKeys(Buffer.from([0x03]))[0], 'ctrl-c');
 });
 
-test('printable keys lowercase; control bytes are ignored', () => {
-  assert.equal(decodeKeys(Buffer.from('J'))[0], 'j');
+test('printable keys pass through with case; control bytes are ignored', () => {
+  assert.equal(decodeKeys(Buffer.from('j'))[0], 'j');
+  assert.equal(decodeKeys(Buffer.from('G'))[0], 'G'); // case matters: g=first, G=last
   assert.equal(decodeKeys(Buffer.from('?'))[0], '?');
   assert.equal(decodeKeys(Buffer.from([0x01])).length, 0);
 });

@@ -87,7 +87,7 @@ tape demo-session.jsonl --frame 8 --plain   # render any moment to stdout
 | `J/K` | scroll detail | `g` / `G` | first / last |
 | `?` | help | `q` | quit |
 
-Also: `tape stats [file]` (cost/tokens summary) and `tape diff a.jsonl b.jsonl` (where two runs split).
+Also: `tape stats [file]` (cost/tokens summary), `tape diff a.jsonl b.jsonl` (where two runs split), and `tape <file> --follow` — tail a session while the agent is still writing it.
 
 ## 📸 Showcase
 

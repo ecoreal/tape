@@ -1,9 +1,10 @@
 // App state + keybindings. Rendering is pure (render.js); this only mutates state.
 import { renderFrame, match } from './render.js';
+import { parseFile } from './parse.js';
 
-export function createApp({ events, file, skipped, meta }) {
+export function createApp({ events, file, skipped, meta, follow }) {
   const st = {
-    events, file, skipped, meta,
+    events, file, skipped, meta, follow,
     sel: events.length ? 0 : 0,
     scroll: 0,
     mode: 'normal', // normal | search | help
@@ -11,6 +12,22 @@ export function createApp({ events, file, skipped, meta }) {
     done: false,
     w: 80, h: 24,
   };
+  // --follow: reload the file; if the user was at the tail, ride the tail
+  const reload = follow ? (() => {
+    let lastLen = events.length;
+    return () => {
+      try {
+        const { events: fresh } = parseFile(st.file);
+        if (fresh.length !== lastLen) {
+          const wasAtTail = st.sel >= lastLen - 1;
+          st.events = fresh;
+          if (wasAtTail) st.sel = fresh.length - 1;
+          st.sel = Math.min(st.sel, fresh.length - 1);
+          lastLen = fresh.length;
+        }
+      } catch { /* mid-write read — next tick will retry */ }
+    };
+  })() : null;
 
   function findNext() {
     const n = st.events.length;
@@ -24,6 +41,7 @@ export function createApp({ events, file, skipped, meta }) {
   return {
     frame(w, h) { st.w = w; st.h = h; return renderFrame(st); },
     isDone: () => st.done,
+    tick: reload,
     key(k) {
       if (st.mode === 'help') {
         if (k === '?' || k === 'escape' || k === 'enter') st.mode = 'normal';

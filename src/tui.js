@@ -7,6 +7,7 @@ export async function run(app) {
     console.log(app.frame(out.columns || 80, 24).join('\n'));
     return;
   }
+  let timer = null;
   process.stdin.setRawMode(true);
   process.stdin.resume();
   out.write('\x1b[?1049h\x1b[?25l\x1b[2J');
@@ -15,6 +16,7 @@ export async function run(app) {
   const finish = () => {
     if (done) return;
     done = true;
+    clearInterval(timer);
     out.write('\x1b[?25h\x1b[?1049l');
     process.stdin.setRawMode(false);
     process.stdin.pause();
@@ -40,6 +42,9 @@ export async function run(app) {
   }
 
   process.stdin.on('data', onData);
+  if (typeof app.tick === 'function') {
+    timer = setInterval(() => { app.tick(); if (!done) draw(); }, 600);
+  }
   process.on('exit', () => {
     if (!done) out.write('\x1b[?25h\x1b[?1049l');
   });
@@ -69,10 +74,10 @@ export function decodeKeys(b) {
     if (b[i] === 127 || b[i] === 8) { out.push('backspace'); i += 1; continue; }
     if (b[i] === 3) { out.push('ctrl-c'); i += 1; continue; }
     if (b[i] < 32) { i += 1; continue; }
-    // full UTF-8 code point, lowercased for keybinding purposes
+    // full UTF-8 code point, case preserved (g/G and search input care)
     let len = 1;
     if (b[i] >= 0xf0) len = 4; else if (b[i] >= 0xe0) len = 3; else if (b[i] >= 0xc0) len = 2;
-    out.push(b.subarray(i, i + len).toString('utf8').toLowerCase());
+    out.push(b.subarray(i, i + len).toString('utf8'));
     i += len;
   }
   return out;

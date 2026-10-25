@@ -18,6 +18,7 @@ usage:
   tape demo [out.jsonl]          write a sample session, then open-ready
   tape <file> --frame <n>        render frame at step n to stdout (headless)
                                  --width W --height H --plain (no colors)
+  tape <file> --follow            tail a live session; stays at the tail
 
 keys: ↑/↓ select · J/K scroll · g/G ends · / search · ? help · q quit
 
@@ -45,7 +46,7 @@ export async function main(argv) {
     return;
   }
 
-  let file = null, frame = null, width = 0, height = 0, plain = false;
+  let file = null, frame = null, width = 0, height = 0, plain = false, follow = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--frame') {
@@ -59,6 +60,7 @@ export async function main(argv) {
     else if (a === '--width') width = Number(argv[++i]);
     else if (a === '--height') height = Number(argv[++i]);
     else if (a === '--plain') plain = true;
+    else if (a === '--follow') follow = true;
     else if (!a.startsWith('-') && file === null) file = a;
   }
   if (!file) {
@@ -97,7 +99,7 @@ export async function main(argv) {
     return;
   }
 
-  const app = createApp({ events, file, skipped, meta });
+  const app = createApp({ events, file, skipped, meta, follow });
   if (frame !== null) {
     const target = Math.max(0, Math.min(events.length - 1, Math.floor(frame)));
     app.key('G'); // jump to last, then step back to requested frame
