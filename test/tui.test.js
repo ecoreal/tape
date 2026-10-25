@@ -1,25 +1,36 @@
 // Key decoding is the one TUI piece that's pure logic — test every escape
-// sequence we claim to support. (The full interactive loop still needs a
-// human with a real terminal; this covers the wiring.)
+// sequence we claim to support, including coalesced multi-key chunks.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeKey } from '../src/tui.js';
+import { decodeKeys } from '../src/tui.js';
 
 test('arrow keys and special keys decode correctly', () => {
-  assert.equal(decodeKey(Buffer.from([0x1b, 0x5b, 0x41])), 'up');
-  assert.equal(decodeKey(Buffer.from([0x1b, 0x5b, 0x42])), 'down');
-  assert.equal(decodeKey(Buffer.from([0x1b, 0x5b, 0x43])), 'right');
-  assert.equal(decodeKey(Buffer.from([0x1b, 0x5b, 0x44])), 'left');
-  assert.equal(decodeKey(Buffer.from([0x1b])), 'escape');
-  assert.equal(decodeKey(Buffer.from([0x0d])), 'enter');
-  assert.equal(decodeKey(Buffer.from([0x09])), 'tab');
-  assert.equal(decodeKey(Buffer.from([0x7f])), 'backspace');
-  assert.equal(decodeKey(Buffer.from([0x03])), 'ctrl-c');
+  assert.equal(decodeKeys(Buffer.from([0x1b, 0x5b, 0x41]))[0], 'up');
+  assert.equal(decodeKeys(Buffer.from([0x1b, 0x5b, 0x42]))[0], 'down');
+  assert.equal(decodeKeys(Buffer.from([0x1b, 0x5b, 0x43]))[0], 'right');
+  assert.equal(decodeKeys(Buffer.from([0x1b, 0x5b, 0x44]))[0], 'left');
+  assert.equal(decodeKeys(Buffer.from([0x1b]))[0], 'escape');
+  assert.equal(decodeKeys(Buffer.from([0x0d]))[0], 'enter');
+  assert.equal(decodeKeys(Buffer.from([0x09]))[0], 'tab');
+  assert.equal(decodeKeys(Buffer.from([0x7f]))[0], 'backspace');
+  assert.equal(decodeKeys(Buffer.from([0x03]))[0], 'ctrl-c');
 });
 
 test('printable keys lowercase; control bytes are ignored', () => {
-  assert.equal(decodeKey(Buffer.from('J')), 'j');
-  assert.equal(decodeKey(Buffer.from('?')), '?');
-  assert.equal(decodeKey(Buffer.from('/')), '/');
-  assert.equal(decodeKey(Buffer.from([0x01])), null);
+  assert.equal(decodeKeys(Buffer.from('J'))[0], 'j');
+  assert.equal(decodeKeys(Buffer.from('?'))[0], '?');
+  assert.equal(decodeKeys(Buffer.from([0x01])).length, 0);
+});
+
+test('coalesced keystrokes decode in order (fast typing / paste)', () => {
+  // tmux and real terminals can deliver "/docker\r" as ONE chunk
+  assert.deepEqual(decodeKeys(Buffer.from('/docker\r')), ['/', 'd', 'o', 'c', 'k', 'e', 'r', 'enter']);
+  assert.deepEqual(decodeKeys(Buffer.from('jjq')), ['j', 'j', 'q']);
+  // escape sequences mixed inline with printable keys
+  assert.deepEqual(
+    decodeKeys(Buffer.concat([Buffer.from('j'), Buffer.from([0x1b, 0x5b, 0x42]), Buffer.from('k')])),
+    ['j', 'down', 'k'],
+  );
+  // multi-byte utf8 does not split
+  assert.deepEqual(decodeKeys(Buffer.from('中')), ['中']);
 });

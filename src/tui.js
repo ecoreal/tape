@@ -31,11 +31,11 @@ export async function run(app) {
   }
 
   function onData(chunk) {
-    const key = decodeKey(chunk);
-    if (!key) return;
-    if (key === 'ctrl-c' || key === 'q') return finish();
-    app.key(key);
-    if (app.isDone()) return finish();
+    for (const key of decodeKeys(chunk)) {
+      if (key === 'ctrl-c' || key === 'q') return finish();
+      app.key(key);
+      if (app.isDone()) return finish();
+    }
     draw();
   }
 
@@ -47,22 +47,37 @@ export async function run(app) {
   return promise;
 }
 
-export function decodeKey(b) {
-  if (b[0] === 27) {
-    if (b.length === 1) return 'escape';
-    if (b[1] === 91) {
-      switch (b[2]) {
-        case 65: return 'up'; case 66: return 'down';
-        case 67: return 'right'; case 68: return 'left';
-        case 53: return 'pgup'; case 54: return 'pgdn';
+// Terminals coalesce fast typing (and tmux/expect tools batch keystrokes):
+// one stdin chunk can carry MANY keys. Scan the whole buffer, in order.
+export function decodeKeys(b) {
+  const out = [];
+  for (let i = 0; i < b.length;) {
+    if (b[i] === 27) {
+      if (b[i + 1] === 91) {
+        const c = b[i + 2];
+        if (c === 65) { out.push('up'); i += 3; continue; }
+        if (c === 66) { out.push('down'); i += 3; continue; }
+        if (c === 67) { out.push('right'); i += 3; continue; }
+        if (c === 68) { out.push('left'); i += 3; continue; }
+        if (c === 53) { out.push('pgup'); i += 4; continue; } // \x1b[5~
+        if (c === 54) { out.push('pgdn'); i += 4; continue; } // \x1b[6~
       }
+      out.push('escape'); i += 1; continue; // lone ESC
     }
-    return null;
+    if (b[i] === 13) { out.push('enter'); i += 1; continue; }
+    if (b[i] === 9) { out.push('tab'); i += 1; continue; }
+    if (b[i] === 127 || b[i] === 8) { out.push('backspace'); i += 1; continue; }
+    if (b[i] === 3) { out.push('ctrl-c'); i += 1; continue; }
+    if (b[i] < 32) { i += 1; continue; }
+    // full UTF-8 code point, lowercased for keybinding purposes
+    let len = 1;
+    if (b[i] >= 0xf0) len = 4; else if (b[i] >= 0xe0) len = 3; else if (b[i] >= 0xc0) len = 2;
+    out.push(b.subarray(i, i + len).toString('utf8').toLowerCase());
+    i += len;
   }
-  if (b[0] === 13) return 'enter';
-  if (b[0] === 9) return 'tab';
-  if (b[0] === 127 || b[0] === 8) return 'backspace';
-  if (b[0] === 3) return 'ctrl-c';
-  if (b[0] < 32) return null;
-  return b.toString('utf8').toLowerCase();
+  return out;
+}
+
+export function decodeKey(b) {
+  return decodeKeys(b)[0] ?? null;
 }
