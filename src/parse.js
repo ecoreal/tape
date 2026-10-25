@@ -28,17 +28,36 @@ export function parseFile(path) {
 export function parseLines(text) {
   const events = [];
   let skipped = 0, meta = 0;
+  const stats = { cost: null, durationMs: null, linesAdded: 0, linesRemoved: 0, tokensIn: 0, tokensOut: 0, models: {} };
   for (const line of text.split('\n')) {
     const t = line.trim();
     if (!t) continue;
     let raw;
     try { raw = JSON.parse(t); } catch { skipped++; continue; }
-    if (raw && typeof raw.type === 'string' && META_TYPES.has(raw.type)) { meta++; continue; }
+    if (raw && typeof raw.type === 'string' && META_TYPES.has(raw.type)) {
+      meta++;
+      if (raw.type === 'cost-state') {
+        if (raw.totalCostUSD != null) stats.cost = raw.totalCostUSD;
+        if (raw.totalDuration != null) stats.durationMs = raw.totalDuration;
+        stats.linesAdded = raw.totalLinesAdded ?? stats.linesAdded;
+        stats.linesRemoved = raw.totalLinesRemoved ?? stats.linesRemoved;
+      }
+      continue;
+    }
+    // usage lives on the message envelope, not on content blocks
+    if (raw?.message) {
+      const u = raw.message.usage;
+      if (u) {
+        stats.tokensIn += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0);
+        stats.tokensOut += u.output_tokens || 0;
+      }
+      if (raw.message.model) stats.models[raw.message.model] = (stats.models[raw.message.model] || 0) + 1;
+    }
     const mapped = normalize(raw);
     if (!mapped.length) skipped++;
     events.push(...mapped);
   }
-  return { events: events.map((e, i) => ({ ...e, i })), skipped, meta };
+  return { events: events.map((e, i) => ({ ...e, i })), skipped, meta, stats };
 }
 
 function ev(type, text, ts = '', meta = {}) {

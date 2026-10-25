@@ -4,6 +4,7 @@ import { run } from './tui.js';
 import { writeDemo } from './demo.js';
 import { vis } from './render.js';
 import { scanSessions, createPicker } from './picker.js';
+import { renderStats } from './stats.js';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -25,6 +26,8 @@ formats: tape-native · Claude Code sessions (~/.claude/projects/**\u002f*.jsonl
 export async function main(argv) {
   if (argv[0] === '-h' || argv[0] === '--help') { console.log(HELP); return; }
   if (argv[0] === '-v' || argv[0] === '--version') { console.log(VERSION); return; }
+  const isStats = argv[0] === 'stats';
+  if (isStats) argv = argv.slice(1);
   if (argv[0] === 'demo') {
     const out = argv.slice(1).find(a => !a.startsWith('-')) || 'demo-session.jsonl';
     const n = writeDemo(out);
@@ -77,6 +80,11 @@ export async function main(argv) {
   if (!events.length) {
     console.error(`tape: no recognizable events in ${file} (${skipped} skipped, ${meta} metadata lines)`);
     process.exitCode = 1;
+    return;
+  }
+
+  if (isStats) {
+    console.log(renderStats(parsed, file));
     return;
   }
 
