@@ -19,6 +19,8 @@ usage:
   tape <file> --frame <n>        render frame at step n to stdout (headless)
                                  --width W --height H --plain (no colors)
   tape <file> --follow            tail a live session; stays at the tail
+  tape grep <query>               which local session mentioned X?
+  tape diff <a.jsonl> <b.jsonl>   where did two runs of a task split?
 
 keys: ↑/↓ select · J/K scroll · g/G ends · / search · ? help · q quit
 
