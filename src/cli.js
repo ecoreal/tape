@@ -28,6 +28,15 @@ export async function main(argv) {
   if (argv[0] === '-v' || argv[0] === '--version') { console.log(VERSION); return; }
   const isStats = argv[0] === 'stats';
   if (isStats) argv = argv.slice(1);
+  if (argv[0] === 'diff') {
+    const [, fa, fb] = argv;
+    if (!fa || !fb) { console.error('tape diff: need two files — tape diff a.jsonl b.jsonl'); process.exitCode = 1; return; }
+    const A = parseFile(fa), B = parseFile(fb);
+    if (!A.events.length || !B.events.length) { console.error('tape diff: both files need events'); process.exitCode = 1; return; }
+    const { renderDiff } = await import('./diff.js');
+    console.log(renderDiff(A.events, B.events, [fa, fb]));
+    return;
+  }
   if (argv[0] === 'demo') {
     const out = argv.slice(1).find(a => !a.startsWith('-')) || 'demo-session.jsonl';
     const n = writeDemo(out);
