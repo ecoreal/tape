@@ -1,0 +1,19 @@
+{
+  "name": "tape-replay",
+  "version": "0.1.0",
+  "description": "⏪ tape — time-travel debugger for AI agent sessions. Zero deps, reads the JSONL your agent already writes.",
+  "type": "module",
+  "bin": { "tape": "bin/tape.js" },
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test" },
+  "keywords": [
+    "ai-agents", "debugging", "replay", "time-travel", "tui", "cli",
+    "claude-code", "openclaw", "jsonl", "developer-tools", "zero-dependency"
+  ],
+  "license": "MIT",
+  "author": "tape contributors",
+  "repository": { "type": "git", "url": "git+https://github.com/ecoreal/tape.git" },
+  "bugs": "https://github.com/ecoreal/tape/issues",
+  "homepage": "https://github.com/ecoreal/tape#readme",
+  "files": ["bin", "src", "examples", "fixtures"]
+}

@@ -1,0 +1,25 @@
+{"ts":"2026-10-25T12:04:11.000Z","type":"user","text":"The login page 500s intermittently in prod. Find and fix it. Auth tests live in tests/auth.test.js."}
+{"ts":"2026-10-25T12:04:28.000Z","type":"assistant","text":"I'll reproduce the failure first, then trace the auth path from the login route to the session store."}
+{"ts":"2026-10-25T12:04:45.000Z","type":"tool_use","text":"Read src/auth/session.ts","meta":{"tool":"Read"}}
+{"ts":"2026-10-25T12:05:02.000Z","type":"tool_result","text":"  14 | export async function refreshSession(userId: string) {\n  15 |   const row = await db.sessions.get(userId);\n  16 |   const next = await issueToken(userId);\n  17 |   await db.sessions.put(userId, next);   // ← not awaited anywhere upstream\n  18 |   return next;\n  19 | }"}
+{"ts":"2026-10-25T12:05:19.000Z","type":"tool_use","text":"Read src/auth/login.ts","meta":{"tool":"Read"}}
+{"ts":"2026-10-25T12:05:36.000Z","type":"tool_result","text":"  31 | router.post('/login', async (req, res) => {\n  32 |   const s = await loginOrRefresh(req);\n  33 |   res.json({ token: s.token });   // response flushes before session write lands\n  34 | });"}
+{"ts":"2026-10-25T12:05:53.000Z","type":"assistant","text":"Suspicious: refreshSession resolves the token before the DB write is awaited. If a second refresh lands in the same tick we can get a torn write and the read side 500s. Confirming with the test suite."}
+{"ts":"2026-10-25T12:06:10.000Z","type":"tool_use","text":"Bash npm test -- tests/auth.test.js","meta":{"tool":"Bash"}}
+{"ts":"2026-10-25T12:06:27.000Z","type":"tool_result","text":"> npm test -- tests/auth.test.js\n\n  ✗ concurrent refresh keeps one session row (2 racing requests)\n  ✗ token from refresh is usable on next request\n  ✗ login returns 200 under load\n  9 passed · 3 failed","meta":{"ok":false}}
+{"ts":"2026-10-25T12:06:44.000Z","type":"assistant","text":"3 failures, all around concurrent refresh — consistent with the race. Fix: serialize refreshes per user with a small in-flight map (a mutex per key), and await the write before returning."}
+{"ts":"2026-10-25T12:07:01.000Z","type":"tool_use","text":"Edit src/auth/session.ts (+14 -3)","meta":{"tool":"Edit"}}
+{"ts":"2026-10-25T12:07:18.000Z","type":"tool_result","text":"Applied edit to src/auth/session.ts. refreshSession now goes through withUserLock(userId, …) and awaits db.sessions.put before issuing the token.","meta":{"ok":true}}
+{"ts":"2026-10-25T12:07:35.000Z","type":"tool_use","text":"Bash npm test -- tests/auth.test.js","meta":{"tool":"Bash"}}
+{"ts":"2026-10-25T12:07:52.000Z","type":"error","text":"fetch failed: ECONNRESET — test DB container (pg-test) died mid-run. 12 tests did not complete."}
+{"ts":"2026-10-25T12:08:09.000Z","type":"assistant","text":"The DB container crashed mid-run — that is an infra flake, not the code under test. Restarting the container and rerunning."}
+{"ts":"2026-10-25T12:08:26.000Z","type":"tool_use","text":"Bash docker restart pg-test && npm test -- tests/auth.test.js","meta":{"tool":"Bash"}}
+{"ts":"2026-10-25T12:08:43.000Z","type":"tool_result","text":"> npm test -- tests/auth.test.js\n\n  ✓ concurrent refresh keeps one session row\n  ✓ token from refresh is usable on next request\n  ✓ login returns 200 under load\n  12 passed · 0 failed","meta":{"ok":true}}
+{"ts":"2026-10-25T12:09:00.000Z","type":"assistant","text":"Root cause: token refresh raced the session write; two concurrent refreshes could tear the row. Fix: per-user lock around refresh. All 12 auth tests green."}
+{"ts":"2026-10-25T12:09:17.000Z","type":"user","text":"nice. add a regression test so this never comes back."}
+{"ts":"2026-10-25T12:09:34.000Z","type":"tool_use","text":"Edit tests/auth.test.js (+31)","meta":{"tool":"Edit"}}
+{"ts":"2026-10-25T12:09:51.000Z","type":"tool_result","text":"Added \"regression: two concurrent refreshes produce exactly one session row\" — spins 2 parallel refresh calls and asserts a single row and matching token.","meta":{"ok":true}}
+{"ts":"2026-10-25T12:10:08.000Z","type":"tool_use","text":"Bash npm test -- tests/auth.test.js","meta":{"tool":"Bash"}}
+{"ts":"2026-10-25T12:10:25.000Z","type":"tool_result","text":"13 passed · 0 failed (0.9s)","meta":{"ok":true}}
+{"ts":"2026-10-25T12:10:42.000Z","type":"assistant","text":"Regression test added and passing: 13/13 green. Summary — cause: race in refreshSession; fix: per-user mutex; proof: new regression test. Done ✅"}
+{"ts":"2026-10-25T12:10:59.000Z","type":"system","text":"session ended · 25 steps · 4m 6s · $0.041","meta":{}}
