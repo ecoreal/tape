@@ -46,3 +46,13 @@ test('sparkline samples long inputs down to width', () => {
   assert.equal(line.length, 60);
   assert.ok(sparkline([]) === '');
 });
+
+test('parse performance guard: 10k-line session under 300ms', () => {
+  const base = demoSession().trim().split('\n');
+  const big = Array.from({ length: 400 }, () => base).flat().join('\n');
+  const t0 = performance.now();
+  const { events } = parseLines(big);
+  const dt = performance.now() - t0;
+  assert.equal(events.length, 10000);
+  assert.ok(dt < 300, `parse took ${dt.toFixed(0)}ms — regressed`);
+});
