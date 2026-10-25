@@ -151,7 +151,8 @@ test('grep --json: array of {path, mtime ISO, title, hits, steps}; no hits → [
     JSON.stringify({ role: 'assistant', content: 'on it' }),
   ].join('\n') + '\n');
   const origHome = process.env.HOME;
-  process.env.HOME = home; // grepSessions defaults to $HOME/.claude/projects
+  process.env.HOME = home; // unix homedir resolution
+  process.env.USERPROFILE = home; // windows homedir resolution
   try {
     const { out, err, code } = await capture(['grep', 'ECONNRESET', '--json']);
     assert.equal(err, '');
@@ -178,6 +179,7 @@ test('grep --json: array of {path, mtime ISO, title, hits, steps}; no hits → [
     assert.equal(human.code, 0);
   } finally {
     process.env.HOME = origHome;
+    process.env.USERPROFILE = origHome;
     rmSync(home, { recursive: true, force: true });
   }
 });
