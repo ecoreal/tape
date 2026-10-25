@@ -44,6 +44,25 @@ export function buildStats(parsed) {
   };
 }
 
+// Machine-readable twin of renderStats, for `tape stats <file> --json`:
+// mirrors buildStats exactly (nulls where the transcript has no data) plus the
+// file it describes. No invented fields — the `activity` sparkline stays
+// render-only. Serialized as one line on stdout.
+export function statsJson(parsed, file) {
+  const s = buildStats(parsed);
+  return {
+    file,
+    steps: s.steps,
+    byType: s.byType,
+    topTools: s.topTools,
+    cost: s.cost,
+    durationMs: s.duration,
+    tokens: { in: s.tokens.in, out: s.tokens.out },
+    models: s.models,
+    lines: s.lines,
+  };
+}
+
 export function renderStats(parsed, file) {
   const s = buildStats(parsed);
   const out = [];

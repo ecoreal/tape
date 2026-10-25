@@ -81,6 +81,18 @@ tape demo-session.jsonl --frame 8 --plain   # render any moment to stdout
 ```
 </details>
 
+<details>
+<summary>⚙ Scripting — <code>--json</code> everywhere</summary>
+
+Every reporting command (`stats`, `diff`, `grep`, `cache`) takes `--json`: stable single-line JSON on stdout, nothing else on the pipe. Human output is unchanged without the flag, and errors always go to stderr with exit code 1 — so scripts can trust it:
+
+```bash
+tape stats session.jsonl --json | jq .cost        # 0.139
+tape grep ECONNRESET --json | jq -r '.[].path'    # which sessions mention it
+tape diff run-a.jsonl run-b.jsonl --json | jq .divergence
+```
+</details>
+
 | key | action | key | action |
 |---|---|---|---|
 | `↑/↓` `j/k` | select step | `/` | search |

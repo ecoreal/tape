@@ -4,7 +4,7 @@ import { run } from './tui.js';
 import { writeDemo } from './demo.js';
 import { vis } from './render.js';
 import { scanSessions, createPicker } from './picker.js';
-import { renderStats } from './stats.js';
+import { renderStats, statsJson } from './stats.js';
 import { join } from 'node:path';
 const dim2 = s => `\x1b[2m${s}\x1b[0m`;
 import { homedir } from 'node:os';
@@ -24,6 +24,7 @@ usage:
   tape grep <query>               which local session mentioned X?
   tape diff <a.jsonl> <b.jsonl>   where did two runs of a task split?
   tape cache <file>               toolcache sidecar stats: entries · size · hit-capable hashes
+  <stats|diff|grep|cache> --json  machine-readable output for scripts and CI
 
 keys: ↑/↓ select · J/K scroll · g/G ends · / search · ? help · q quit
 
@@ -34,6 +35,7 @@ export async function main(argv) {
   if (argv[0] === '-v' || argv[0] === '--version') { console.log(VERSION); return; }
   const isStats = argv[0] === 'stats';
   if (isStats) argv = argv.slice(1);
+  const statsJsonMode = isStats && argv.includes('--json');
   if (argv[0] === 'film') {
     const args = argv.slice(1);
     const file = args.find(a => !a.startsWith('-'));
@@ -100,7 +102,9 @@ export async function main(argv) {
     return;
   }
   if (argv[0] === 'cache') {
-    const file = argv.slice(1).find(a => !a.startsWith('-'));
+    const args = argv.slice(1);
+    const jsonMode = args.includes('--json');
+    const file = args.find(a => !a.startsWith('-'));
     if (!file) { console.error('tape cache: need a session — tape cache <file>'); process.exitCode = 1; return; }
     let parsed;
     try {
@@ -110,15 +114,19 @@ export async function main(argv) {
       process.exitCode = 1;
       return;
     }
-    const { cacheReport, renderCacheReport } = await import('./toolcache.js');
-    console.log(renderCacheReport(cacheReport(parsed, file)));
+    const { cacheReport, renderCacheReport, cacheJson } = await import('./toolcache.js');
+    const report = cacheReport(parsed, file);
+    console.log(jsonMode ? JSON.stringify(cacheJson(report)) : renderCacheReport(report));
     return;
   }
   if (argv[0] === 'grep') {
-    const query = argv.slice(1).find(a => !a.startsWith('-'));
+    const args = argv.slice(1);
+    const jsonMode = args.includes('--json');
+    const query = args.find(a => !a.startsWith('-'));
     if (!query) { console.error('tape grep: need a query — tape grep ECONNRESET'); process.exitCode = 1; return; }
-    const { grepSessions } = await import('./grep.js');
+    const { grepSessions, grepJson } = await import('./grep.js');
     const hits = grepSessions(query);
+    if (jsonMode) { console.log(JSON.stringify(grepJson(hits))); return; } // no hits → []
     if (!hits.length) { console.log(`no local session mentions "${query}"`); return; }
     console.log(`"${query}" appears in ${hits.length} session(s):\n`);
     for (const h of hits) {
@@ -129,12 +137,24 @@ export async function main(argv) {
     return;
   }
   if (argv[0] === 'diff') {
-    const [, fa, fb] = argv;
+    const args = argv.slice(1);
+    const jsonMode = args.includes('--json');
+    const [fa, fb] = args.filter(a => !a.startsWith('-'));
     if (!fa || !fb) { console.error('tape diff: need two files — tape diff a.jsonl b.jsonl'); process.exitCode = 1; return; }
-    const A = parseFile(fa), B = parseFile(fb);
+    // unreadable inputs fail the same way in both modes: message on stderr, exit 1
+    const read = f => {
+      try { return parseFile(f); }
+      catch (e) { console.error(`tape diff: cannot read ${f} (${e.code || e.message})`); process.exitCode = 1; return null; }
+    };
+    const A = read(fa);
+    if (!A) return;
+    const B = read(fb);
+    if (!B) return;
     if (!A.events.length || !B.events.length) { console.error('tape diff: both files need events'); process.exitCode = 1; return; }
-    const { renderDiff } = await import('./diff.js');
-    console.log(renderDiff(A.events, B.events, [fa, fb]));
+    const { diffSummary, renderDiff } = await import('./diff.js');
+    console.log(jsonMode
+      ? JSON.stringify(diffSummary(A.events, B.events))
+      : renderDiff(A.events, B.events, [fa, fb]));
     return;
   }
   if (argv[0] === 'demo') {
@@ -195,7 +215,7 @@ export async function main(argv) {
   }
 
   if (isStats) {
-    console.log(renderStats(parsed, file));
+    console.log(statsJsonMode ? JSON.stringify(statsJson(parsed, file)) : renderStats(parsed, file));
     return;
   }
 

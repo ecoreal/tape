@@ -83,6 +83,18 @@ export function cacheReport(parsed, file) {
   return { cacheFile, entries, size, toolUses: toolUses.length, hitCapable: hitCapable.size };
 }
 
+// JSON twin of the cache report, for `tape cache <file> --json`: the full
+// entry list verbatim (hash · tool · input · output · ts) plus the counts a
+// script cares about — bytes of sidecar, hit-capable hashes, tool_use steps.
+export function cacheJson(r) {
+  return {
+    entries: r.entries,
+    bytes: r.size,
+    hitCapable: r.hitCapable,
+    sessionToolUses: r.toolUses,
+  };
+}
+
 export function renderCacheReport(r) {
   const out = [];
   out.push(`⏪ tape — cache  ${r.cacheFile}`);

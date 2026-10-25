@@ -25,3 +25,16 @@ export function grepSessions(query, root = join(homedir(), '.claude', 'projects'
   }
   return hits;
 }
+
+// JSON twin of the grep listing, for `tape grep <q> --json`: mtime as ISO,
+// the `first` match dropped (a render detail, not a result). Array order stays
+// most-recent-first, one object per session.
+export function grepJson(hits) {
+  return hits.map(h => ({
+    path: h.path,
+    mtime: new Date(h.mtime).toISOString(),
+    title: h.title,
+    hits: h.hits,
+    steps: h.steps,
+  }));
+}
