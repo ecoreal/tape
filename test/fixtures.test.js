@@ -9,8 +9,9 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('claude-code fixture maps to the golden event sequence', () => {
-  const { events, skipped } = parseFile(join(root, 'fixtures', 'claude-code', 'basic.jsonl'));
+  const { events, skipped, meta } = parseFile(join(root, 'fixtures', 'claude-code', 'basic.jsonl'));
   assert.equal(skipped, 0);
+  assert.equal(meta, 3); // summary + cost-state + mode: bookkeeping, not data loss
   assert.deepEqual(events.map(e => e.type), [
     'user', 'assistant', 'tool_use', 'tool_result', 'assistant', 'assistant',
   ]);

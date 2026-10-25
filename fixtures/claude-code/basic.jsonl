@@ -2,3 +2,6 @@
 {"type":"assistant","timestamp":"2026-10-25T10:00:05.000Z","message":{"role":"assistant","model":"claude-x-1","content":[{"type":"text","text":"on it — running the suite first"},{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"npm test"}}]}}
 {"type":"user","timestamp":"2026-10-25T10:00:12.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"text","text":"1 failed\n  ✗ auth refresh race"}]}]}}
 {"type":"assistant","timestamp":"2026-10-25T10:00:20.000Z","message":{"role":"assistant","model":"claude-x-1","content":[{"type":"thinking","thinking":"hmm — the flaky one again, or a real race?"},{"type":"text","text":"it's a real race in refreshSession"}]}}
+{"type":"summary","summary":"Fix auth race","leafUuid":"x"}
+{"type":"cost-state","totalCostUSD":0.041,"modelUsage":{},"sessionId":"s1"}
+{"type":"mode","mode":"default","sessionId":"s1"}

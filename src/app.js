@@ -1,9 +1,9 @@
 // App state + keybindings. Rendering is pure (render.js); this only mutates state.
 import { renderFrame, match } from './render.js';
 
-export function createApp({ events, file, skipped }) {
+export function createApp({ events, file, skipped, meta }) {
   const st = {
-    events, file, skipped,
+    events, file, skipped, meta,
     sel: events.length ? 0 : 0,
     scroll: 0,
     mode: 'normal', // normal | search | help

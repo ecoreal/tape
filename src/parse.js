@@ -12,23 +12,33 @@ export const TYPES = {
   system: { glyph: 'S', color: '\x1b[90m' },      // gray
 };
 
+// Claude Code sessions interleave the conversation with bookkeeping lines
+// (mode switches, cost state, attachments…). These are ignored BY DESIGN —
+// they are metadata, not data loss, and get their own counter.
+const META_TYPES = new Set([
+  'mode', 'permission-mode', 'atis-latch', 'file-history-snapshot', 'last-prompt',
+  'ai-title', 'api-request-shape', 'api-request', 'api-request-blob', 'cost-state',
+  'attachment', 'summary',
+]);
+
 export function parseFile(path) {
   return parseLines(readFileSync(path, 'utf8'));
 }
 
 export function parseLines(text) {
   const events = [];
-  let skipped = 0;
+  let skipped = 0, meta = 0;
   for (const line of text.split('\n')) {
     const t = line.trim();
     if (!t) continue;
     let raw;
     try { raw = JSON.parse(t); } catch { skipped++; continue; }
+    if (raw && typeof raw.type === 'string' && META_TYPES.has(raw.type)) { meta++; continue; }
     const mapped = normalize(raw);
     if (!mapped.length) skipped++;
     events.push(...mapped);
   }
-  return { events: events.map((e, i) => ({ ...e, i })), skipped };
+  return { events: events.map((e, i) => ({ ...e, i })), skipped, meta };
 }
 
 function ev(type, text, ts = '', meta = {}) {

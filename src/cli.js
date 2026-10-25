@@ -55,14 +55,14 @@ export async function main(argv) {
     process.exitCode = 1;
     return;
   }
-  const { events, skipped } = parsed;
+  const { events, skipped, meta } = parsed;
   if (!events.length) {
-    console.error(`tape: no recognizable events in ${file} (${skipped} lines skipped)`);
+    console.error(`tape: no recognizable events in ${file} (${skipped} skipped, ${meta} metadata lines)`);
     process.exitCode = 1;
     return;
   }
 
-  const app = createApp({ events, file, skipped });
+  const app = createApp({ events, file, skipped, meta });
   if (frame !== null) {
     const target = Math.max(0, Math.min(events.length - 1, Math.floor(frame)));
     app.key('G'); // jump to last, then step back to requested frame

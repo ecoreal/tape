@@ -34,7 +34,8 @@ export function renderFrame(st) {
 
   // header
   const left = bold('⏪ tape') + ' ' + dim(String(st.file || ''));
-  const right = dim(`${n} steps${st.skipped ? ` · ${st.skipped} skipped` : ''}`);
+  const counts = [`${n} steps`, st.meta ? `${st.meta} meta` : '', st.skipped ? `${st.skipped} skipped` : ''].filter(Boolean).join(' · ');
+  const right = dim(counts);
   lines.push(padTo(cut(left, w - vis(right).length - 1) + ' ' + right, w));
 
   const listW = Math.max(24, Math.min(46, Math.floor(w * 0.45)));

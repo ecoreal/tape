@@ -47,7 +47,7 @@ export async function run(app) {
   return promise;
 }
 
-function decodeKey(b) {
+export function decodeKey(b) {
   if (b[0] === 27) {
     if (b.length === 1) return 'escape';
     if (b[1] === 91) {
