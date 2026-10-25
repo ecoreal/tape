@@ -30,26 +30,29 @@ export function wrap(text, width) {
 export function renderFrame(st) {
   const { w, h } = st;
   const lines = [];
-  const n = st.events.length;
+  const n = st.view.length;
 
   // header
   const left = bold('⏪ tape') + ' ' + dim(String(st.file || ''));
-  const counts = [`${n} steps`, st.meta ? `${st.meta} meta` : '', st.skipped ? `${st.skipped} skipped` : ''].filter(Boolean).join(' · ');
-  const right = dim(counts);
+  const countBits = [`${n} steps`];
+  if (st.filter) countBits.push(`filtered: ${st.filter} of ${st.events.length}`);
+  if (st.meta) countBits.push(`${st.meta} meta`);
+  if (st.skipped) countBits.push(`${st.skipped} skipped`);
+  const right = dim(countBits.join(' · '));
   lines.push(padTo(cut(left, w - vis(right).length - 1) + ' ' + right, w));
 
   const listW = Math.max(24, Math.min(46, Math.floor(w * 0.45)));
   const detW = w - listW - 3; // borders + gap
   const rows = Math.max(3, h - 4); // header + panel top/bottom + status
 
-  // left rows
+  // left rows (over the filtered view)
   const sel = st.sel;
   const start = Math.max(0, Math.min(sel - (rows >> 1), n - rows));
   const leftRows = [];
   for (let r = 0; r < rows; r++) {
     const i = start + r;
     if (i >= n) { leftRows.push(''); continue; }
-    const e = st.events[i];
+    const e = st.view[i];
     const t = TYPES[e.type] || TYPES.system;
     const isMatch = st.query && match(e, st.query);
     let row = `  ${t.glyph} ${cut(e.title, listW - 7)}`;
@@ -59,7 +62,7 @@ export function renderFrame(st) {
   }
 
   // right detail
-  const e = n ? st.events[sel] : null;
+  const e = n ? st.view[sel] : null;
   const detRows = [];
   if (e) {
     const t = TYPES[e.type] || TYPES.system;
@@ -96,6 +99,7 @@ export function renderFrame(st) {
       '↑/↓ or j/k   select step',
       'J/K          scroll detail',
       'g / G        first / last step',
+      'f            fork here (writes <file>.fork-N.jsonl)',
       '/            search        q  quit',
       '',
       'formats: tape-native · claude-code · {role,content}',
@@ -113,9 +117,10 @@ export function renderFrame(st) {
     }
     lines.push(padTo(dim('? close help'), w));
   } else {
-    const hint = '↑↓ select · / search · ? help · q quit';
+    const hint = st.note || '↑↓ select · f fork · / search · ? help · q quit';
     const pos = `${n ? sel + 1 : 0}/${n}`;
-    lines.push(padTo(dim(cut(hint, w - vis(pos).length - 1)) + ' ' + pos, w));
+    const line = (st.note ? hint + '  ' : dim(cut(hint, w - vis(pos).length - 1)) + ' ') + pos;
+    lines.push(padTo(cut(line, w), w));
   }
 
   while (lines.length < h) lines.push('');

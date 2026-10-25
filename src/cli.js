@@ -20,6 +20,7 @@ usage:
   tape <file> --frame <n>        render frame at step n to stdout (headless)
                                  --width W --height H --plain (no colors)
   tape <file> --follow            tail a live session; stays at the tail
+  tape <file> --filter tool_use   view-only filter to one event type
   tape grep <query>               which local session mentioned X?
   tape diff <a.jsonl> <b.jsonl>   where did two runs of a task split?
 
@@ -127,7 +128,7 @@ export async function main(argv) {
     return;
   }
 
-  let file = null, frame = null, width = 0, height = 0, plain = false, follow = false;
+  let file = null, frame = null, width = 0, height = 0, plain = false, follow = false, filter = null;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--frame') {
@@ -142,6 +143,7 @@ export async function main(argv) {
     else if (a === '--height') height = Number(argv[++i]);
     else if (a === '--plain') plain = true;
     else if (a === '--follow') follow = true;
+    else if (a === '--filter') filter = argv[++i];
     else if (!a.startsWith('-') && file === null) file = a;
   }
   if (!file) {
@@ -180,7 +182,7 @@ export async function main(argv) {
     return;
   }
 
-  const app = createApp({ events, file, skipped, meta, follow });
+  const app = createApp({ events, file, skipped, meta, follow, filter });
   if (frame !== null) {
     const target = Math.max(0, Math.min(events.length - 1, Math.floor(frame)));
     app.key('G'); // jump to last, then step back to requested frame
