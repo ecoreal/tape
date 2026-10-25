@@ -23,6 +23,7 @@ usage:
   tape <file> --filter tool_use   view-only filter to one event type
   tape grep <query>               which local session mentioned X?
   tape diff <a.jsonl> <b.jsonl>   where did two runs of a task split?
+  tape cache <file>               toolcache sidecar stats: entries · size · hit-capable hashes
 
 keys: ↑/↓ select · J/K scroll · g/G ends · / search · ? help · q quit
 
@@ -94,7 +95,23 @@ export async function main(argv) {
     const { rerun } = await import('./rerun.js');
     const r = await rerun(file, { provider, turns });
     if (r.error) { console.error(`tape rerun: ${r.error}`); process.exitCode = 1; return; }
-    console.log(`▶ rerun added ${r.added} turn(s) via ${provider}`);
+    console.log(`▶ rerun added ${r.added} turn(s) via ${provider}`
+      + ` · toolcache +${r.toolSeeded + r.turnEntries} (${r.toolHits} tool hit(s))`);
+    return;
+  }
+  if (argv[0] === 'cache') {
+    const file = argv.slice(1).find(a => !a.startsWith('-'));
+    if (!file) { console.error('tape cache: need a session — tape cache <file>'); process.exitCode = 1; return; }
+    let parsed;
+    try {
+      parsed = parseFile(file);
+    } catch (e) {
+      console.error(`tape cache: cannot read ${file} (${e.code || e.message})`);
+      process.exitCode = 1;
+      return;
+    }
+    const { cacheReport, renderCacheReport } = await import('./toolcache.js');
+    console.log(renderCacheReport(cacheReport(parsed, file)));
     return;
   }
   if (argv[0] === 'grep') {
