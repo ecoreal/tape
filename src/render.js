@@ -28,6 +28,7 @@ export function wrap(text, width) {
 }
 
 export function renderFrame(st) {
+  if (st.diffMode) return finishFrame(renderDiffLines(st), st.w, st.h);
   const { w, h } = st;
   const lines = [];
   const n = st.view.length;
@@ -100,6 +101,7 @@ export function renderFrame(st) {
       'J/K          scroll detail',
       'g / G        first / last step',
       'f            fork here (writes <file>.fork-N.jsonl)',
+      'd            diff vs fork source (forks only)',
       '/            search        q  quit',
       '',
       'formats: tape-native · claude-code · {role,content}',
@@ -123,10 +125,52 @@ export function renderFrame(st) {
     lines.push(padTo(cut(line, w), w));
   }
 
+  // last-resort width guard lives in finishFrame: pad to h, hard-cut overwide
+  return finishFrame(lines, w, h);
+}
+
+// shared tail: pad to exactly h lines, hard-cut anything wider than w
+function finishFrame(lines, w, h) {
   while (lines.length < h) lines.push('');
-  // last-resort width guard: on very narrow terminals a composed line can
-  // still exceed w (panel minimums) — hard-cut to plain text rather than wrap
   return lines.slice(0, h).map(l => (vis(l).length <= w ? l : vis(l).slice(0, Math.max(0, w - 1)) + '…'));
+}
+
+// The in-TUI diff view (st.diffMode): how the open fork split from its source.
+// Pure function of state, like the timeline.
+function renderDiffLines(st) {
+  const { w, h } = st;
+  const d = st.diffMode;
+  const s = d.summary;
+  const lines = [];
+
+  const right = dim(`${s.steps[0]} vs ${s.steps[1]} steps`);
+  const head = bold('⏪ tape — diff') + ' ' + dim(`vs ${d.source}`);
+  // no full-width pad: in wide-glyph locales ⏪ renders 2 cells and a padded
+  // line would wrap in a real terminal (the timeline header carries that
+  // pre-existing quirk; this view stays wrap-free)
+  lines.push(cut(head + ' ' + right, w));
+  lines.push('');
+
+  if (s.divergence == null) {
+    lines.push(s.steps[0] === s.steps[1]
+      ? '✓ identical sessions'
+      : dim('no content divergence — one session is a prefix of the other'));
+  } else {
+    const i = s.divergence;
+    lines.push(`divergence   step ${i + 1} (0-based ${i})`);
+    lines.push('');
+    const srcTitle = d.aTitles[i] != null ? d.aTitles[i] : '(missing)';
+    const cur = st.events[i];
+    lines.push(cut(`  source   ${srcTitle}`, w));
+    lines.push(cut(`  current  ${cur ? cur.title : '(missing)'}`, w));
+    lines.push('');
+    lines.push(dim(`identical prefix: ${s.identicalPrefix} steps · ${s.differingAfterDivergence} steps differ after divergence`));
+    if (s.steps[0] !== s.steps[1]) lines.push(dim(`length differs: ${s.steps[0]} vs ${s.steps[1]} — one session ran further`));
+  }
+
+  while (lines.length < h - 1) lines.push('');
+  lines.push(dim('d back · q quit'));
+  return lines;
 }
 
 export function match(e, q) {

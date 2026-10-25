@@ -2,6 +2,7 @@
 import { renderFrame, match } from './render.js';
 import { parseFile } from './parse.js';
 import { forkSession } from './fork.js';
+import { diffSummary } from './diff.js';
 
 export function createApp({ events, file, skipped, meta, follow, filter }) {
   const st = {
@@ -14,6 +15,9 @@ export function createApp({ events, file, skipped, meta, follow, filter }) {
     query: '',
     note: null,     // transient status hint (e.g. "forked → file")
     done: false,
+    diffMode: null,       // {source, at, summary, aTitles} while the diff view is open
+    _forkInfo: undefined, // lazily detected fork marker; null = checked, not a fork
+    _preDiffSel: 0,       // selection to restore when the diff view closes
     w: 80, h: 24,
   };
   applyFilter(st, filter);
@@ -39,9 +43,15 @@ export function createApp({ events, file, skipped, meta, follow, filter }) {
   return {
     frame(w, h) { st.w = w; st.h = h; return renderFrame(st); },
     isDone: () => st.done,
+    state: () => st, // read-only-ish peek for tests and debugging
     tick: reload,
     key(k) {
       if (st.note) st.note = null;
+      if (st.diffMode) {
+        // the diff view is read-only: d (or escape) goes back, q / ctrl-c quit
+        if (k === 'd' || k === 'escape') exitDiff(st);
+        return;
+      }
       if (st.mode === 'help') {
         if (k === '?' || k === 'escape' || k === 'enter') st.mode = 'normal';
         return;
@@ -66,6 +76,7 @@ export function createApp({ events, file, skipped, meta, follow, filter }) {
         case '/': st.mode = 'search'; st.query = ''; break;
         case '?': st.mode = 'help'; break;
         case 'f': doFork(st); break;
+        case 'd': doDiff(st); break;
         case 'escape': st.done = true; break;
       }
     },
@@ -104,4 +115,52 @@ function doFork(st) {
   } catch (e) {
     st.note = `fork failed: ${e.message}`;
   }
+}
+
+// Fork-ness, detected lazily and cached: the open session is a fork when its
+// trailing event carries the marker forkSession writes. null = checked, no.
+function forkInfo(st) {
+  if (st._forkInfo !== undefined) return st._forkInfo;
+  let info = null;
+  try {
+    const { events } = parseFile(st.file);
+    const last = events[events.length - 1];
+    const fk = last?.meta?.fork;
+    if (fk) {
+      const m = typeof fk === 'object' ? fk : last.meta; // {fork:{source,at}} or {fork:true, source, at}
+      info = { source: m.source, at: m.at ?? null };
+    }
+  } catch { /* unreadable file — treat as not a fork */ }
+  st._forkInfo = info;
+  return info;
+}
+
+// `d` — toggle the diff view against the session this fork split from.
+function doDiff(st) {
+  const info = forkInfo(st);
+  if (!info || !info.source) {
+    st.note = 'not a fork — open a .fork-*.jsonl file';
+    return;
+  }
+  let src;
+  try {
+    src = parseFile(info.source).events;
+  } catch (e) {
+    st.note = `diff failed: cannot read ${info.source} (${e.code || e.message})`;
+    return;
+  }
+  const summary = diffSummary(src, st.events);
+  // source titles mapped to the common prefix plus the diverging step, so the
+  // view can show both sides at the split (aTitles[divergence] = source title)
+  const span = summary.identicalPrefix + (summary.divergence != null ? 1 : 0);
+  const aTitles = src.slice(0, span).map(e => e.title);
+  st._preDiffSel = st.sel;
+  st.scroll = 0;
+  st.diffMode = { source: info.source, at: info.at, summary, aTitles };
+}
+
+function exitDiff(st) {
+  st.diffMode = null;
+  st.sel = st._preDiffSel ?? 0;
+  st.scroll = 0;
 }
