@@ -6,6 +6,7 @@ import { vis } from './render.js';
 import { scanSessions, createPicker } from './picker.js';
 import { renderStats } from './stats.js';
 import { join } from 'node:path';
+const dim2 = s => `\x1b[2m${s}\x1b[0m`;
 import { homedir } from 'node:os';
 
 const VERSION = '0.1.0';
@@ -31,6 +32,33 @@ export async function main(argv) {
   if (argv[0] === '-v' || argv[0] === '--version') { console.log(VERSION); return; }
   const isStats = argv[0] === 'stats';
   if (isStats) argv = argv.slice(1);
+  if (argv[0] === 'film') {
+    const args = argv.slice(1);
+    const file = args.find(a => !a.startsWith('-'));
+    let every = 4, width = 80, height = 18;
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--every') every = Math.max(1, Number(args[++i]) || 4);
+      if (args[i] === '--width') width = Number(args[++i]) || 80;
+      if (args[i] === '--height') height = Number(args[++i]) || 18;
+    }
+    if (!file) { console.error('tape film: tape film <file> [--every 4]'); process.exitCode = 1; return; }
+    const parsed2 = parseFile(file);
+    if (!parsed2.events.length) { console.error('tape film: no events'); process.exitCode = 1; return; }
+    const app = createApp({ ...parsed2, file });
+    const total = parsed2.events.length;
+    const stops = [];
+    for (let i = every - 1; i < total; i += every) stops.push(i);
+    if (stops[stops.length - 1] !== total - 1) stops.push(total - 1);
+    console.log(dim2(`# tape film · ${file} · ${stops.length} frames (every ${every} steps)`));
+    for (const idx of stops) {
+      const at = total - 1 - idx;
+      app.key('G');
+      for (let k = 0; k < at; k++) app.key('up');
+      console.log(dim2(`\n── step ${idx + 1}/${total} ${'─'.repeat(40)}`));
+      console.log(app.frame(width, height).join('\n'));
+    }
+    return;
+  }
   if (argv[0] === 'fork') {
     const args = argv.slice(1);
     const file = args.find(a => !a.startsWith('-'));
