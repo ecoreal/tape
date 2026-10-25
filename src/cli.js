@@ -31,6 +31,43 @@ export async function main(argv) {
   if (argv[0] === '-v' || argv[0] === '--version') { console.log(VERSION); return; }
   const isStats = argv[0] === 'stats';
   if (isStats) argv = argv.slice(1);
+  if (argv[0] === 'fork') {
+    const args = argv.slice(1);
+    const file = args.find(a => !a.startsWith('-'));
+    const n = Number(args.find((a, i) => i > 0 && !a.startsWith('-') && /^\d+$/.test(a)) || args[1]);
+    let out, noEdit = args.includes('--no-edit');
+    for (let i = 0; i < args.length; i++) { if (args[i] === '--out') out = args[++i]; }
+    if (!file || !Number.isFinite(n)) { console.error('tape fork: tape fork <file> <step> [--no-edit] [--out f]'); process.exitCode = 1; return; }
+    const { forkSession, editInEditor } = await import('./fork.js');
+    let editText;
+    if (!noEdit) {
+      // editor flow needs a real TTY; otherwise we fork without editing
+      const stepText = parseFile(file).events[n - 1]?.text || '';
+      editText = editInEditor(stepText) ?? undefined;
+    }
+    try {
+      const r = forkSession(file, n, { out, editText });
+      console.log(`🌿 forked at step ${r.kept} → ${r.out}`);
+      console.log(`   continue: tape rerun ${r.out} [--provider echo|openai]`);
+      console.log(`   compare:  tape diff ${file} ${r.out}`);
+    } catch (e) { console.error(`tape fork: ${e.message}`); process.exitCode = 1; }
+    return;
+  }
+  if (argv[0] === 'rerun') {
+    const args = argv.slice(1);
+    const file = args.find(a => !a.startsWith('-'));
+    if (!file) { console.error('tape rerun: tape rerun <file> [--provider echo] [--turns 2]'); process.exitCode = 1; return; }
+    let provider = 'echo', turns = 2;
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--provider') provider = args[++i];
+      if (args[i] === '--turns') turns = Number(args[++i]) || 2;
+    }
+    const { rerun } = await import('./rerun.js');
+    const r = await rerun(file, { provider, turns });
+    if (r.error) { console.error(`tape rerun: ${r.error}`); process.exitCode = 1; return; }
+    console.log(`▶ rerun added ${r.added} turn(s) via ${provider}`);
+    return;
+  }
   if (argv[0] === 'grep') {
     const query = argv.slice(1).find(a => !a.startsWith('-'));
     if (!query) { console.error('tape grep: need a query — tape grep ECONNRESET'); process.exitCode = 1; return; }
