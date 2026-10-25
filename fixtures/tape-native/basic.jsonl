@@ -1,0 +1,6 @@
+{"ts":"2026-10-25T12:00:00.000Z","type":"user","text":"replay the night build and find why it went red","meta":{}}
+{"ts":"2026-10-25T12:00:01.000Z","type":"assistant","text":"loading the session and scanning for the first failure","meta":{}}
+{"ts":"2026-10-25T12:00:02.000Z","type":"tool_use","text":"grep ECONNRESET","meta":{"tool":"grep"}}
+{"ts":"2026-10-25T12:00:03.000Z","type":"tool_result","text":"3 matches in build-4217.log, first at 02:14:09","meta":{}}
+{"ts":"2026-10-25T12:00:04.000Z","type":"error","text":"fetch failed: ECONNRESET — registry socket dropped mid-install","meta":{}}
+{"ts":"2026-10-25T12:00:05.000Z","type":"assistant","text":"the runner lost the registry mid-install; adding a bounded retry","meta":{}}

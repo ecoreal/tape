@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { scanSessions, createPicker } from '../src/picker.js';
+import { ADAPTERS } from '../src/parse.js';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vis } from '../src/render.js';
@@ -8,9 +9,10 @@ import { vis } from '../src/render.js';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('scanSessions finds jsonl files in project subdirs, sorted by recency', () => {
-  // fixtures/ mirrors the real layout: <root>/<project-dir>/*.jsonl
+  // fixtures/ mirrors the real layout: <root>/<project-dir>/*.jsonl, and holds
+  // exactly one fixture per registered adapter (docs/adapter-spec.md).
   const sessions = scanSessions(join(root, 'fixtures'));
-  assert.equal(sessions.length, 2); // claude-code/basic.jsonl + generic/chat.jsonl
+  assert.equal(sessions.length, ADAPTERS.length); // tape-native + claude-code + generic
   assert.ok(sessions.some(s => s.path.endsWith('basic.jsonl') && s.size > 0));
   assert.ok(
     sessions[0].mtime >= sessions[1].mtime,

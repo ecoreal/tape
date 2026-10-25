@@ -99,7 +99,7 @@ tape diff run-a.jsonl run-b.jsonl --json | jq .divergence
 | `J/K` | scroll detail | `g` / `G` | first / last |
 | `?` | help | `q` | quit |
 
-Also: `tape stats [file]` (cost/tokens summary), `tape diff a.jsonl b.jsonl` (where two runs split), and `tape <file> --follow` — tail a session while the agent is still writing it.
+Also: `tape stats [file]` (cost/tokens summary), `tape diff a.jsonl b.jsonl` (where two runs split), `tape adapters` (which session formats tape reads — and how to add one), and `tape <file> --follow` — tail a session while the agent is still writing it.
 
 ## 📸 Showcase
 
@@ -171,7 +171,7 @@ activity     ▁▁▄▁▁▁▄█▁▁▁▄▆▁
 
 Small, sharp PRs welcome — this codebase is deliberately tiny (~1.5k lines, zero deps) so you can hold it all in your head.
 
-**🏆 Best first PR: a session-format adapter** (~20 lines). Until `docs/adapter-spec.md` ships, [src/parse.js](src/parse.js) is the living spec — the `normalize()` function. Bug reports with a *redacted* transcript that fails to parse are gold.
+**🏆 Best first PR: a session-format adapter** (~20 lines). The contract is [docs/adapter-spec.md](docs/adapter-spec.md) — the unified Step model, the claude-code mapping table, tolerance rules, and a copy-paste golden-test recipe; `tape adapters` lists what's built in. [src/parse.js](src/parse.js) (`normalize()`) remains the reference implementation. Bug reports with a *redacted* transcript that fails to parse are gold.
 
 ```bash
 git clone https://github.com/ecoreal/tape && cd tape

@@ -1,4 +1,4 @@
-import { parseFile } from './parse.js';
+import { parseFile, ADAPTERS, adaptersJson } from './parse.js';
 import { createApp } from './app.js';
 import { run } from './tui.js';
 import { writeDemo } from './demo.js';
@@ -24,6 +24,7 @@ usage:
   tape grep <query>               which local session mentioned X?
   tape diff <a.jsonl> <b.jsonl>   where did two runs of a task split?
   tape cache <file>               toolcache sidecar stats: entries · size · hit-capable hashes
+  tape adapters                   session formats tape reads + their fixtures and tests
   <stats|diff|grep|cache> --json  machine-readable output for scripts and CI
 
 keys: ↑/↓ select · J/K scroll · g/G ends · / search · ? help · q quit
@@ -117,6 +118,20 @@ export async function main(argv) {
     const { cacheReport, renderCacheReport, cacheJson } = await import('./toolcache.js');
     const report = cacheReport(parsed, file);
     console.log(jsonMode ? JSON.stringify(cacheJson(report)) : renderCacheReport(report));
+    return;
+  }
+  if (argv[0] === 'adapters') {
+    const jsonMode = argv.includes('--json');
+    if (jsonMode) { console.log(JSON.stringify(adaptersJson())); return; }
+    const nameW = Math.max('name'.length, ...ADAPTERS.map(a => a.name.length));
+    const statusW = Math.max('status'.length, ...ADAPTERS.map(a => a.status.length));
+    const fixtureW = Math.max('fixture'.length, ...ADAPTERS.map(a => a.fixture.length));
+    console.log(`⏪ tape adapters — ${ADAPTERS.length} session formats, auto-sniffed per file\n`);
+    console.log(`  ${'name'.padEnd(nameW)}  ${'status'.padEnd(statusW)}  ${'fixture'.padEnd(fixtureW)}  test`);
+    for (const a of ADAPTERS) {
+      console.log(`  ${a.name.padEnd(nameW)}  ${a.status.padEnd(statusW)}  ${a.fixture.padEnd(fixtureW)}  ${a.test}`);
+    }
+    console.log(`\n  write your own: docs/adapter-spec.md · OpenClaw adapter wanted: github.com/ecoreal/tape/issues/1`);
     return;
   }
   if (argv[0] === 'grep') {

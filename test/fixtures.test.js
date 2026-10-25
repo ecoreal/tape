@@ -23,6 +23,18 @@ test('claude-code fixture maps to the golden event sequence', () => {
   assert.equal(events[4].meta.thinking, true);
 });
 
+test('tape-native fixture maps to the golden event sequence', () => {
+  const { events, skipped, meta } = parseFile(join(root, 'fixtures', 'tape-native', 'basic.jsonl'));
+  assert.equal(skipped, 0);
+  assert.equal(meta, 0);
+  assert.deepEqual(events.map(e => e.type), [
+    'user', 'assistant', 'tool_use', 'tool_result', 'error', 'assistant',
+  ]);
+  assert.equal(events[0].ts, '2026-10-25T12:00:00.000Z');
+  assert.equal(events[2].meta.tool, 'grep');
+  assert.equal(events[4].text, 'fetch failed: ECONNRESET — registry socket dropped mid-install');
+});
+
 test('generic fixture parses with one garbage line counted', () => {
   const { events, skipped } = parseFile(join(root, 'fixtures', 'generic', 'chat.jsonl'));
   assert.equal(events.length, 3);

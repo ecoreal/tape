@@ -21,6 +21,21 @@ const META_TYPES = new Set([
   'attachment', 'summary',
 ]);
 
+// The adapter registry — one source of truth. `tape adapters` prints it,
+// test/adapters.test.js asserts every fixture/test path exists on disk, so the
+// table cannot rot silently. Adding an adapter to normalize()? Add a row here
+// (contract: docs/adapter-spec.md). Paths are repo-relative.
+export const ADAPTERS = [
+  { name: 'tape-native', status: 'built-in', fixture: 'fixtures/tape-native/basic.jsonl', test: 'test/fixtures.test.js' },
+  { name: 'claude-code', status: 'built-in', fixture: 'fixtures/claude-code/basic.jsonl', test: 'test/fixtures.test.js' },
+  { name: 'generic', status: 'built-in', fixture: 'fixtures/generic/chat.jsonl', test: 'test/fixtures.test.js' },
+];
+
+// The published shape for `tape adapters --json`: exactly these four keys, so
+// future internal fields never leak into scripts.
+export const adaptersJson = () =>
+  ADAPTERS.map(({ name, status, fixture, test: testPath }) => ({ name, status, fixture, test: testPath }));
+
 export function parseFile(path) {
   return parseLines(readFileSync(path, 'utf8'));
 }
