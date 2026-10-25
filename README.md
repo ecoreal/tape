@@ -152,8 +152,8 @@ activity     ▁▁▄▁▁▁▄█▁▁▁▄▆▁
 
 ## 🗺 Roadmap
 
-- **v0.5 — the big one:** `tape fork 15` → edit any step and deterministically re-run from there, with cached tool results. Prompt A/B testing, offline.
-- v0.5+: `tape diff a.jsonl b.jsonl` (divergence view), more adapters (OpenClaw…), `--follow` live tail.
+- ~~v0.5: `tape fork` + rerun~~ ✅ **shipped** — `tape fork <file> <N>` branches a session ($EDITOR edit of step N when interactive), `tape rerun` continues it (`echo` provider offline, any OpenAI-compatible endpoint via `TAPE_API_KEY`). `fork → rerun → diff` is offline prompt A/B testing.
+- next: tool-result caching across reruns (identical tool calls served from the original session — zero cost re-runs), more adapters (OpenClaw…), GIF export.
 
 ## 🤝 Contributing
 
