@@ -99,6 +99,7 @@ export function renderFrame(st) {
       '/            search        q  quit',
       '',
       'formats: tape-native · claude-code · {role,content}',
+      'also: stats · diff a b · --follow (tail live)',
     ];
     const bw = Math.min(w - 4, 52);
     const bh = keys.length + 2;
