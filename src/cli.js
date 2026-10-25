@@ -3,16 +3,20 @@ import { createApp } from './app.js';
 import { run } from './tui.js';
 import { writeDemo } from './demo.js';
 import { vis } from './render.js';
+import { scanSessions, createPicker } from './picker.js';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 const VERSION = '0.1.0';
 
 const HELP = `⏪ tape ${VERSION} — time-travel debugger for AI agent sessions
 
 usage:
-  tape <file.jsonl>            open an interactive timeline (TUI)
-  tape demo [out.jsonl]        write a sample session, then open-ready
-  tape <file> --frame <n>      render frame at step n to stdout (headless)
-                               --width W --height H --plain (no colors)
+  tape                           pick a session from ~/.claude/projects
+  tape <file.jsonl>              open an interactive timeline (TUI)
+  tape demo [out.jsonl]          write a sample session, then open-ready
+  tape <file> --frame <n>        render frame at step n to stdout (headless)
+                                 --width W --height H --plain (no colors)
 
 keys: ↑/↓ select · J/K scroll · g/G ends · / search · ? help · q quit
 
@@ -45,7 +49,21 @@ export async function main(argv) {
     else if (a === '--plain') plain = true;
     else if (!a.startsWith('-') && file === null) file = a;
   }
-  if (!file) { console.log(HELP); process.exitCode = 1; return; }
+  if (!file) {
+    // no file given: offer the sessions this machine already has
+    const sessions = scanSessions(join(homedir(), '.claude', 'projects'));
+    if (!sessions.length) { console.log(HELP); process.exitCode = 1; return; }
+    if (!process.stdout.isTTY) {
+      console.log('sessions found (run `tape <path>`):\n');
+      sessions.slice(0, 15).forEach((s, i) => console.log(`  ${String(i + 1).padStart(2)} ${s.path}`));
+      return;
+    }
+    const picker = createPicker(sessions);
+    await run(picker); // exits alt-screen after enter/q
+    if (!picker.result) return; // q — user changed their mind
+    file = picker.result.path;
+    console.log(`⏪ opening ${file}`);
+  }
 
   let parsed;
   try {
