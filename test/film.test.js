@@ -124,3 +124,26 @@ test('writeFilm writes a real GIF file (header, trailer, non-zero frames)', asyn
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('CLI: a missing file or a directory fails with one clean line, not a stack trace', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const { join: j } = await import('node:path');
+  const bin = j(fileURLToPath(new URL('.', import.meta.url)), '..', 'bin', 'tape.js');
+  const run = args => {
+    try {
+      execFileSync(process.execPath, [bin, ...args], { encoding: 'utf8', stdio: 'pipe' });
+      return { code: 0, out: '' };
+    } catch (e) {
+      return { code: e.status, out: String(e.stderr) };
+    }
+  };
+  const missing = run(['gif', '/tmp/definitely-not-a-session.jsonl']);
+  assert.equal(missing.code, 1);
+  assert.match(missing.out, /^tape: no such file/);
+  assert.doesNotMatch(missing.out, /at .*node:fs/);
+  const dir = run(['gif', '/tmp']);
+  assert.equal(dir.code, 1);
+  assert.match(dir.out, /^tape: that is a directory/);
+  assert.doesNotMatch(dir.out, /at .*node:fs/);
+});
