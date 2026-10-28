@@ -33,6 +33,7 @@
 - 🔍 **Search across everything** — one keystroke jumps to the first mention of that `ECONNRESET` you're hunting.
 - 🛡 **Never crashes on your data** — malformed lines are skipped and counted, never fatal. Real transcripts are messy; tape expects it.
 - 🤖 **Headless mode** — `--frame N --plain` renders any moment to stdout: scriptable, CI-friendly, and it's how every screenshot in this README was made (no image editor involved).
+- 🎞 **`tape gif`** — the session as an animated GIF that plays by itself: steps reveal one at a time, the current one is lit, and a ribbon underneath shows the shape of the whole run. Encoded by hand (GIF89a + LZW, zero deps), so it works offline and in CI.
 - 🪶 **Zero runtime dependencies** — ~20 KB of JavaScript. Nothing to audit, nothing to break, `npx` and go.
 
 ## 🧭 How It Works
@@ -99,7 +100,25 @@ tape diff run-a.jsonl run-b.jsonl --json | jq .divergence
 | `J/K` | scroll detail | `g` / `G` | first / last |
 | `?` | help | `q` | quit |
 
-Also: `tape stats [file]` (cost/tokens summary), `tape diff a.jsonl b.jsonl` (where two runs split), `tape adapters` (which session formats tape reads — and how to add one), and `tape <file> --follow` — tail a session while the agent is still writing it.
+Also: `tape stats [file]` (cost/tokens summary), `tape diff a.jsonl b.jsonl` (where two runs split), `tape adapters` (which session formats tape reads — and how to add one), `tape gif <file>` (the session as an animated GIF), and `tape <file> --follow` — tail a session while the agent is still writing it.
+
+## 🎞 `tape gif` — a session that plays itself
+
+```bash
+npx tape-replay gif demo-session.jsonl            # → demo-session.gif
+npx tape-replay gif ses.jsonl --out run.gif --rows 8 --frames 60 --delay 6
+```
+
+Each frame reveals one more step, the current step is lit, and the ribbon at the bottom holds the shape of the entire session — you can see where the errors cluster before the caption says so. Everything is drawn from the session file: a hand-made 5×7 bitmap font (no font files to install), a 29-colour palette derived from the ANSI codes tape already emits, and a hand-written GIF89a/LZW encoder. Same input, same bytes, every time — the GIF is as reproducible as the replay.
+
+| flag | default | what it does |
+|---|---|---|
+| `--out` | `<file>.gif` | where to write |
+| `--rows` | `12` | steps visible at once (the window scrolls) |
+| `--frames` | `48` | animation length; long sessions are sampled evenly |
+| `--delay` | `8` | centiseconds per frame |
+| `--width` | `800` | canvas width in pixels |
+| `--scale` | `2` | glyph scale (1 = 800px of 130 columns, 2 = 66 columns) |
 
 ## 📸 Showcase
 
@@ -165,7 +184,7 @@ activity     ▁▁▄▁▁▁▄█▁▁▁▄▆▁
 ## 🗺 Roadmap
 
 - ~~v0.5: `tape fork` + rerun~~ ✅ **shipped** — `tape fork <file> <N>` branches a session ($EDITOR edit of step N when interactive), `tape rerun` continues it (`echo` provider offline, any OpenAI-compatible endpoint via `TAPE_API_KEY`). `fork → rerun → diff` is offline prompt A/B testing.
-- next: tool-result caching across reruns (identical tool calls served from the original session — zero cost re-runs), more adapters (OpenClaw…), GIF export.
+- next: more adapters (OpenClaw…), and a GIF that only re-sends the frame regions that changed (25 frames of an 800×313 film is ~280 KB today; almost all of it is the unchanged upper rows).
 
 ## 🤝 Contributing
 

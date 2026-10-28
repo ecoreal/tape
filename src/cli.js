@@ -23,6 +23,8 @@ usage:
   tape <file> --filter tool_use   view-only filter to one event type
   tape grep <query>               which local session mentioned X?
   tape diff <a.jsonl> <b.jsonl>   where did two runs of a task split?
+  tape film <file>                arena storyboard: frames every N steps, paste-ready
+  tape gif <file> [--out f.gif]   the session as an animated GIF (offline, no keys)
   tape cache <file>               toolcache sidecar stats: entries · size · hit-capable hashes
   tape adapters                   session formats tape reads + their fixtures and tests
   <stats|diff|grep|cache> --json  machine-readable output for scripts and CI
@@ -37,6 +39,34 @@ export async function main(argv) {
   const isStats = argv[0] === 'stats';
   if (isStats) argv = argv.slice(1);
   const statsJsonMode = isStats && argv.includes('--json');
+  if (argv[0] === 'gif') {
+    const args = argv.slice(1);
+    const file = args.find(a => !a.startsWith('-') && !/^\d+$/.test(a) && !/^\.gif$/i.test(a));
+    const opts = { width: 800, rows: 12, frames: 48, delayCs: 8, scale: 2, out: null };
+    for (let i = 0; i < args.length; i++) {
+      const k = args[i];
+      if (k === '--out') opts.out = args[++i];
+      else if (k === '--width') opts.width = Math.max(160, Number(args[++i]) || 800);
+      else if (k === '--rows') opts.rows = Math.max(3, Number(args[++i]) || 12);
+      else if (k === '--frames') opts.frames = Math.max(2, Number(args[++i]) || 48);
+      else if (k === '--delay') opts.delayCs = Math.max(1, Number(args[++i]) || 8);
+      else if (k === '--scale') opts.scale = Math.min(3, Math.max(1, Number(args[++i]) || 2));
+    }
+    if (!file) { console.error('tape gif: tape gif <file> [--out film.gif] [--width 800] [--rows 12]'); process.exitCode = 1; return; }
+    const parsed = parseFile(file);
+    if (!parsed.events.length) { console.error(`tape gif: ${file} has no events to film`); process.exitCode = 1; return; }
+    const { buildFilm, writeFilm } = await import('./film.js');
+    const film = buildFilm({ file, ...parsed, width: opts.width, rows: opts.rows, frames: opts.frames, delayCs: opts.delayCs, scale: opts.scale });
+    const dest = opts.out || `${file.replace(/\.[^./\\]*$/, '')}.gif`;
+    try {
+      const r = writeFilm(dest, film);
+      console.log(`🎞 ${r.frames} frames · ${r.width}x${r.height} · ${(r.bytes / 1024).toFixed(1)} KB → ${r.path}`);
+    } catch (e) {
+      console.error(`tape gif: ${e.message}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
   if (argv[0] === 'film') {
     const args = argv.slice(1);
     const file = args.find(a => !a.startsWith('-'));
