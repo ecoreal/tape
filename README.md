@@ -29,7 +29,7 @@
 ## ✨ Core Features
 
 - 📼 **Time-travel scrubbing** — `j/k` through every step of an agent session like a video editor; the detail pane shows exactly what the agent saw, including full tool output.
-- 🔌 **Reads what you already have** — Claude Code session files, tape-native JSONL, and generic `{role, content}` lines. No SDK, no instrumentation, no re-running anything.
+- 🔌 **Reads what you already have** — Claude Code session files, **OpenClaw / pi** `AgentSession` JSONL, tape-native, and generic `{role, content}` lines. No SDK, no instrumentation, no re-running anything.
 - 🔍 **Search across everything** — one keystroke jumps to the first mention of that `ECONNRESET` you're hunting.
 - 🛡 **Never crashes on your data** — malformed lines are skipped and counted, never fatal. Real transcripts are messy; tape expects it.
 - 🤖 **Headless mode** — `--frame N --plain` renders any moment to stdout: scriptable, CI-friendly, and it's how every screenshot in this README was made (no image editor involved).
@@ -43,7 +43,8 @@ flowchart LR
     subgraph files["📄 Sessions you already have"]
         A1["Claude Code<br/>~/.claude/projects/**/*.jsonl"]
         A2["tape-native<br/>JSONL"]
-        A3["generic<br/>{role, content}"]
+        A3["OpenClaw / pi<br/>AgentSession JSONL"]
+        A4["generic<br/>{role, content}"]
     end
     R["🔌 adapters<br/>auto-sniff + tolerant parse"]
     M["🧠 core · unified Step model<br/>pure · testable · portable"]
@@ -53,6 +54,7 @@ flowchart LR
     A1 --> R
     A2 --> R
     A3 --> R
+    A4 --> R
     R --> M
     M --> T
     M --> H
@@ -184,7 +186,7 @@ activity     ▁▁▄▁▁▁▄█▁▁▁▄▆▁
 ## 🗺 Roadmap
 
 - ~~v0.5: `tape fork` + rerun~~ ✅ **shipped** — `tape fork <file> <N>` branches a session ($EDITOR edit of step N when interactive), `tape rerun` continues it (`echo` provider offline, any OpenAI-compatible endpoint via `TAPE_API_KEY`). `fork → rerun → diff` is offline prompt A/B testing.
-- next: more adapters (OpenClaw…), and a GIF that only re-sends the frame regions that changed (25 frames of an 800×313 film is ~280 KB today; almost all of it is the unchanged upper rows).
+- next: GIF frames that only carry what changed (transparent delta frames — see the `--diff` flag), and a `--follow`-style live GIF that grows while the agent is still writing.
 
 ## 🤝 Contributing
 

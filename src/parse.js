@@ -19,6 +19,9 @@ const META_TYPES = new Set([
   'mode', 'permission-mode', 'atis-latch', 'file-history-snapshot', 'last-prompt',
   'ai-title', 'api-request-shape', 'api-request', 'api-request-blob', 'cost-state',
   'attachment', 'summary',
+  // OpenClaw / pi AgentSession entries: the session header, model switches,
+  // compaction summaries, custom app data — bookkeeping, like everything above
+  'session', 'model_change', 'thinking_level_change', 'compaction', 'branch_summary', 'custom', 'label',
 ]);
 
 // The adapter registry — one source of truth. `tape adapters` prints it,
@@ -28,6 +31,7 @@ const META_TYPES = new Set([
 export const ADAPTERS = [
   { name: 'tape-native', status: 'built-in', fixture: 'fixtures/tape-native/basic.jsonl', test: 'test/fixtures.test.js' },
   { name: 'claude-code', status: 'built-in', fixture: 'fixtures/claude-code/basic.jsonl', test: 'test/fixtures.test.js' },
+  { name: 'openclaw', status: 'built-in', fixture: 'fixtures/openclaw/basic.jsonl', test: 'test/fixtures.test.js' },
   { name: 'generic', status: 'built-in', fixture: 'fixtures/generic/chat.jsonl', test: 'test/fixtures.test.js' },
 ];
 
@@ -63,8 +67,14 @@ export function parseLines(text) {
     if (raw?.message) {
       const u = raw.message.usage;
       if (u) {
-        stats.tokensIn += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0);
-        stats.tokensOut += u.output_tokens || 0;
+        if (u.input_tokens != null || u.output_tokens != null) { // claude-code
+          stats.tokensIn += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0);
+          stats.tokensOut += u.output_tokens || 0;
+        } else { // OpenClaw: {input, output, cacheRead, cacheWrite, cost:{total}}
+          stats.tokensIn += (u.input || 0) + (u.cacheRead || 0);
+          stats.tokensOut += u.output || 0;
+          if (u.cost?.total != null) stats.cost = (stats.cost || 0) + u.cost.total;
+        }
       }
       if (raw.message.model) stats.models[raw.message.model] = (stats.models[raw.message.model] || 0) + 1;
     }
@@ -94,9 +104,40 @@ export function normalize(raw) {
     return [ev(raw.type, raw.text, raw.ts, raw.meta || {})];
   }
 
-  // 2) Claude Code sessions: {type:'user'|'assistant', timestamp, message:{role, content}}
+  // 2) OpenClaw / pi AgentSession: {type:'message', timestamp, message:{role, content:[...]}}
+  //    roles: user | assistant | toolResult; blocks: text | thinking | toolCall
+  if (raw.type === 'message' && raw.message && Array.isArray(raw.message.content)) {
+    const msg = raw.message;
+    const ts = raw.timestamp || (typeof msg.timestamp === 'number' ? new Date(msg.timestamp).toISOString() : '');
+    const model = msg.model ? { model: msg.model } : {};
+    const out = [];
+    const bodyOf = c => (typeof c === 'string' ? c
+      : Array.isArray(c) ? c.filter(x => x && x.text).map(x => x.text).join('\n')
+      : safeJson(c));
+    if (msg.role === 'user') {
+      for (const b of msg.content) {
+        if (typeof b === 'string') out.push(ev('user', b, ts));
+        else if (b?.type === 'text' && b.text) out.push(ev('user', b.text, ts));
+      }
+    } else if (msg.role === 'assistant') {
+      for (const b of msg.content) {
+        if (typeof b === 'string') out.push(ev('assistant', b, ts, model));
+        else if (b?.type === 'text' && b.text) out.push(ev('assistant', b.text, ts, model));
+        else if (b?.type === 'thinking' && b.thinking) out.push(ev('assistant', b.thinking, ts, { thinking: true }));
+        else if (b?.type === 'toolCall') out.push(ev('tool_use', `${b.name} ${safeJson(b.arguments, 200)}`, ts, { tool: b.name, id: b.id }));
+      }
+    } else if (msg.role === 'toolResult') {
+      // isError is data, not noise: a failed tool is an error step
+      const type = msg.isError ? 'error' : 'tool_result';
+      out.push(ev(type, bodyOf(msg.content) || '(empty)', ts, { id: msg.toolCallId, tool: msg.toolName }));
+    }
+    if (out.length) return out;
+  }
+
+  // 3) Claude Code sessions: {type:'user'|'assistant', timestamp, message:{role, content}}
   const msg = raw.message;
-  if (msg && (typeof msg.content === 'string' || Array.isArray(msg.content))) {
+  // (type:'message' belongs to the OpenClaw branch above — never re-read it here)
+  if (msg && raw.type !== 'message' && (typeof msg.content === 'string' || Array.isArray(msg.content))) {
     const role = raw.type === 'assistant' || msg.role === 'assistant' ? 'assistant' : 'user';
     const ts = raw.timestamp || '';
     const out = [];
@@ -119,14 +160,14 @@ export function normalize(raw) {
     if (out.length) return out;
   }
 
-  // 3) generic chat shape: {role, content}
+  // 4) generic chat shape: {role, content}
   if (typeof raw.role === 'string' && raw.content != null) {
     const type = raw.role === 'assistant' ? 'assistant' : raw.role === 'tool' ? 'tool_result' : 'user';
     const body = typeof raw.content === 'string' ? raw.content : safeJson(raw.content);
     return [ev(type, body, raw.ts || raw.timestamp || '')];
   }
 
-  // 4) bare error line
+  // 5) bare error line
   if (raw.type === 'error' || raw.level === 'error') {
     return [ev('error', raw.message || raw.text || raw.error || 'unknown error', raw.ts || '')];
   }

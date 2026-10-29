@@ -144,7 +144,26 @@ Expected mapping:
 
 The golden test asserts types `[user, assistant, tool_use, tool_result]` and `skipped === 1`. That is the whole adapter — ship it.
 
-## 6. Open asks
+## 6. Reference mapping: openclaw / pi `AgentSession`
 
-- **OpenClaw session format** — [#1](https://github.com/ecoreal/tape/issues/1). Grab it:
-  three redacted lines from a real session are enough to start a PR.
+OpenClaw (and pi) write `{type:'message', id, parentId, timestamp, message:{role, content, usage?, model?, provider?, stopReason?}}`.
+Roles are `user | assistant | toolResult`; content is an array of typed blocks:
+
+| input | → steps |
+|---|---|
+| `message.role: 'user'` + `{type:'text'}` blocks | `user` step |
+| `{type:'text'}` on an assistant message | `assistant` step, `meta.model` when `message.model` is set |
+| `{type:'thinking', thinking}` | `assistant` step with `meta.thinking: true` |
+| `{type:'toolCall', id, name, arguments}` | `tool_use` step; title `"<name> <json arguments>"`; `meta: {tool, id}` |
+| `message.role: 'toolResult'` | `tool_result` step (`error` when `isError: true`); `meta: {id: toolCallId, tool: toolName}`; `[{text}]` arrays joined with `\n` |
+| `message.usage: {input, output, cacheRead, cacheWrite, cost:{total}}` | **not a step** — harvested: `tokensIn += input + cacheRead`, `tokensOut += output`, `cost += cost.total` |
+| `{type:'session' \| 'model_change' \| 'thinking_level_change' \| 'compaction' \| 'branch_summary' \| 'custom' \| 'label'}` | META_TYPES — counted, never a step |
+| unknown role / block type | 0 steps → counted as `skipped` (never re-read as claude-code) |
+
+Golden truth: `fixtures/openclaw/basic.jsonl` + the `openclaw` tests in `test/fixtures.test.js`.
+
+## 7. Open asks
+
+- **Another adapter**: OpenCode, Codex CLI, Aider, Cursor, Gemini CLI… three redacted
+  lines from a real session are enough to start a PR. Open an issue first, or follow
+  §4 and send the fixture with the branch.

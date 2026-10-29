@@ -31,7 +31,7 @@ usage:
 
 keys: ↑/↓ select · J/K scroll · g/G ends · / search · ? help · q quit
 
-formats: tape-native · Claude Code sessions (~/.claude/projects/**\u002f*.jsonl) · generic {role,content}`;
+formats: tape-native · Claude Code (~/.claude/projects/**\u002f*.jsonl) · OpenClaw/pi · generic {role,content}`;
 
 export async function main(argv) {
   if (argv[0] === '-h' || argv[0] === '--help') { console.log(HELP); return; }
