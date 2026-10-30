@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildFilm, PALETTE, C, TYPE_STYLE, createCanvas, rect, text, ansiLinesToCanvas, fit } from '../src/film.js';
+import { buildFilm, PALETTE, C, TYPE_STYLE, createCanvas, rect, text, ansiLinesToCanvas, fit, deltaFrames, TRANSPARENT } from '../src/film.js';
 import { drawable, glyph } from '../src/font.js';
 import { encodeGif } from '../src/gif.js';
 import { parseLines } from '../src/parse.js';
@@ -27,13 +27,17 @@ test('one frame per stop, capped by --frames, and the last stop is the final ste
   assert.ok(last.pixels.some(p => p !== PALETTE.indexOf(PALETTE[0])), 'final frame has ink');
 });
 
-test('every frame only uses palette indices that exist', () => {
+test('every frame only uses palette indices that exist (or the transparent slot)', () => {
   const { events } = demo();
   const film = buildFilm({ events, frames: 5, width: 400, rows: 6 });
   for (const f of film.frames) {
     assert.equal(f.pixels.length, film.width * film.height);
     const max = Math.max(...f.pixels);
-    assert.ok(max < PALETTE.length, `index ${max} outside ${PALETTE.length}-entry palette`);
+    assert.ok(max <= TRANSPARENT, `index ${max} outside the ${PALETTE.length}+1 table`);
+  }
+  const full = buildFilm({ events, frames: 5, width: 400, rows: 6, diff: false });
+  for (const f of full.frames) {
+    assert.ok(Math.max(...f.pixels) < PALETTE.length, 'full frames never use the transparent slot');
   }
 });
 
@@ -146,4 +150,53 @@ test('CLI: a missing file or a directory fails with one clean line, not a stack 
   assert.equal(dir.code, 1);
   assert.match(dir.out, /^tape: that is a directory/);
   assert.doesNotMatch(dir.out, /at .*node:fs/);
+});
+
+test('deltaFrames: the first frame is complete, later frames carry only changes', () => {
+  const a = new Uint8Array([1, 2, 3, 4]);
+  const b = new Uint8Array([1, 9, 3, 9]);
+  const out = deltaFrames([{ pixels: a }, { pixels: b }]);
+  assert.deepEqual([...out[0].pixels], [1, 2, 3, 4], 'nothing to keep on screen yet');
+  assert.equal(out[0].changed, 4);
+  assert.deepEqual([...out[1].pixels], [TRANSPARENT, 9, TRANSPARENT, 9]);
+  assert.equal(out[1].changed, 2);
+});
+
+test('deltaFrames: an unchanged frame becomes fully transparent (legal, disposal 1)', () => {
+  const p = new Uint8Array([5, 5, 5, 5]);
+  const out = deltaFrames([{ pixels: p }, { pixels: p }]);
+  assert.ok([...out[1].pixels].every(v => v === TRANSPARENT));
+  assert.equal(out[1].changed, 0);
+});
+
+test('buildFilm defaults to deltas and says so; --no-diff gives full frames', () => {
+  const { events } = demo();
+  const delta = buildFilm({ events, frames: 6, width: 400, rows: 6 });
+  const full = buildFilm({ events, frames: 6, width: 400, rows: 6, diff: false });
+  assert.equal(delta.transparent, TRANSPARENT);
+  assert.equal(full.transparent, null);
+  assert.ok(delta.frames[0].pixels.every(v => v !== TRANSPARENT), 'frame 0 is always complete');
+  assert.ok(delta.frames.slice(1).some(f => f.pixels.includes(TRANSPARENT)), 'later frames are deltas');
+  assert.deepEqual(full.frames.map(f => [...f.pixels]), buildFilm({ events, frames: 6, width: 400, rows: 6, diff: false }).frames.map(f => [...f.pixels]));
+});
+
+test('deltas shrink the file on a real session without changing what you see', () => {
+  const { events } = demo();
+  const opts = { file: 'demo.jsonl', events, frames: 12, width: 600, rows: 8 };
+  const delta = encodeGif(buildFilm({ ...opts }));
+  const full = encodeGif(buildFilm({ ...opts, diff: false }));
+  assert.ok(delta.length < full.length, `delta ${delta.length} should beat full ${full.length}`);
+
+  // composite both the way a viewer does (disposal 1: keep what is there)
+  const render = film => {
+    const { width, height } = film;
+    const screen = new Uint8Array(width * height);
+    return film.frames.map(f => {
+      for (let i = 0; i < screen.length; i++) {
+        if (film.transparent == null || f.pixels[i] !== film.transparent) screen[i] = f.pixels[i];
+      }
+      return [...screen];
+    });
+  };
+  assert.deepEqual(render(buildFilm({ ...opts })), render(buildFilm({ ...opts, diff: false })));
 });

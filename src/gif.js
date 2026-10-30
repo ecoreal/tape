@@ -66,7 +66,7 @@ function subBlocks(bytes) {
  *  frames:  [{ pixels: Uint8Array|number[] (width*height indices), delayCs? }]
  * Returns a Buffer.
  */
-export function encodeGif({ width, height, palette, frames, delayCs = 12, loop = 0 }) {
+export function encodeGif({ width, height, palette, frames, delayCs = 12, loop = 0, transparent = null }) {
   const pal = palette.slice(0, 256);
   // the global color table must be a power of two, at least 2 entries
   let bits = 1;
@@ -89,8 +89,11 @@ export function encodeGif({ width, height, palette, frames, delayCs = 12, loop =
   const minCodeSize = Math.max(2, bits);
   for (const f of frames) {
     const delay = f.delayCs ?? delayCs;
-    // graphic control extension: rest to bg? no — leave frame in place
-    pushAll(bytes, [0x21, 0xf9, 0x04, 0x04, ...u16(Math.max(0, delay)), 0x00, 0x00]);
+    const tint = f.transparent ?? transparent;
+    // graphic control extension: transparency lets a frame carry only what
+    // changed; disposal 1 ("do not dispose") leaves the rest of the canvas.
+    const packed = tint == null ? 0x04 : 0x05; // 0x04 = disposal 1 · 0x05 = + transparent flag
+    pushAll(bytes, [0x21, 0xf9, 0x04, packed, ...u16(Math.max(0, delay)), tint ?? 0x00, 0x00]);
     // image descriptor: full-frame, no local color table, not interlaced
     pushAll(bytes, [0x2c, ...u16(0), ...u16(0), ...u16(width), ...u16(height), 0x00]);
     bytes.push(minCodeSize);

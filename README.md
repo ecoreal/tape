@@ -121,6 +121,9 @@ Each frame reveals one more step, the current step is lit, and the ribbon at the
 | `--delay` | `8` | centiseconds per frame |
 | `--width` | `800` | canvas width in pixels |
 | `--scale` | `2` | glyph scale (1 = 800px of 130 columns, 2 = 66 columns) |
+| `--no-diff` | off | full frames every time instead of transparent deltas |
+
+Frames after the first are **deltas**: every pixel identical to the previous frame is written as transparent (GIF disposal 1), so the unchanged chrome — the border, the legend, the steps that already scrolled past — costs almost nothing. On a real session that is about half the file (`--no-diff` reproduces the naive output if you need it), and what you see is byte-for-byte the same.
 
 ## 📸 Showcase
 
@@ -186,7 +189,7 @@ activity     ▁▁▄▁▁▁▄█▁▁▁▄▆▁
 ## 🗺 Roadmap
 
 - ~~v0.5: `tape fork` + rerun~~ ✅ **shipped** — `tape fork <file> <N>` branches a session ($EDITOR edit of step N when interactive), `tape rerun` continues it (`echo` provider offline, any OpenAI-compatible endpoint via `TAPE_API_KEY`). `fork → rerun → diff` is offline prompt A/B testing.
-- next: GIF frames that only carry what changed (transparent delta frames — see the `--diff` flag), and a `--follow`-style live GIF that grows while the agent is still writing.
+- next: a `--follow`-style GIF that grows while the agent is still writing, and per-adapter film themes.
 
 ## 🤝 Contributing
 

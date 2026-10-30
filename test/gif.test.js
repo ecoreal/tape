@@ -56,6 +56,7 @@ function parseGif(buf) {
   const frames = [];
   let loop = null;
   let delay = null;
+  let transparent = null;
   while (i < buf.length) {
     const b = buf[i];
     if (b === 0x3b) { i++; break; }
@@ -63,7 +64,9 @@ function parseGif(buf) {
       const label = buf[i + 1];
       i += 2;
       if (label === 0xf9) {
+        const gcePacked = buf[i + 1];
         delay = buf[i + 2] | (buf[i + 3] << 8);
+        transparent = gcePacked & 1 ? buf[i + 4] : null;
       } else if (label === 0xff) {
         const name = buf.subarray(i + 1, i + 12).toString('ascii');
         assert.equal(name, 'NETSCAPE2.0');
@@ -86,7 +89,7 @@ function parseGif(buf) {
         for (let k = 0; k < n; k++) data.push(buf[i++]);
       }
       i++;
-      frames.push({ width: fw, height: fh, minCode, data: Uint8Array.from(data), delay });
+      frames.push({ width: fw, height: fh, minCode, data: Uint8Array.from(data), delay, transparent });
       continue;
     }
     throw new Error(`unexpected block 0x${b.toString(16)} at ${i}`);
@@ -174,4 +177,22 @@ test('large frames do not blow the stack when writing sub-blocks', () => {
   const back = lzwDecode(frames[0].data, frames[0].minCode);
   assert.equal(back.length, w * h);
   assert.equal(back[12345], pixels[12345]);
+});
+test('transparent delta frames: flag set, index preserved, still decodable', () => {
+  const w = 8, h = 4;
+  const base = new Uint8Array(w * h).fill(1);
+  const delta = new Uint8Array(w * h).fill(3);
+  delta[0] = 1; // one pixel identical to the previous frame
+  const buf = encodeGif({ width: w, height: h, palette: pal(4), frames: [{ pixels: base }, { pixels: delta }], transparent: 3 });
+  const gif = parseGif(buf);
+  assert.equal(gif.frames[0].transparent, 3);
+  assert.equal(gif.frames[1].transparent, 3);
+  const px = lzwDecode(gif.frames[1].data, gif.frames[1].minCode);
+  assert.equal(px[0], 1, 'identical pixel keeps its own index (the viewer shows the old one anyway)');
+  assert.equal(px[1], 3, 'changed pixel carries the new colour');
+});
+
+test('without the flag the GCE has no transparent index', () => {
+  const buf = encodeGif({ width: 4, height: 4, palette: pal(4), frames: [{ pixels: new Uint8Array(16).fill(2) }] });
+  assert.equal(parseGif(buf).frames[0].transparent, null);
 });

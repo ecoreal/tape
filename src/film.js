@@ -31,6 +31,11 @@ export const PALETTE = [
   '#b1bac4', '#f0f6fc', '#6e7681',
 ].map(hex);
 
+// Index reserved for "unchanged since the previous frame". It is a real palette
+// slot (the table is padded to 32 entries), but transparent frames never paint
+// it, so the viewer keeps whatever was already on screen.
+export const TRANSPARENT = PALETTE.length;
+
 export const C = {
   bg: 0, ink: 1, dim: 2, faint: 3, band: 4,
   hue: (h, mode = 0) => 5 + h * 3 + mode, // mode: 0 base · 1 bright · 2 dim
@@ -129,9 +134,31 @@ const basename = p => String(p || '').split(/[\\/]/).pop() || 'session';
  * Build the film: palette-indexed frames for an animated session timeline.
  * Deterministic — same events + same options ⇒ byte-identical GIF.
  */
+/**
+ * Turn full frames into delta frames: anything identical to the previous frame
+ * becomes TRANSPARENT. The first frame must stay complete (there is nothing to
+ * keep on screen yet). Text films change a few rows per step, so this is where
+ * the bytes go — unchanged chrome costs nothing.
+ */
+export function deltaFrames(frames, transparentIndex = TRANSPARENT) {
+  let prev = null;
+  return frames.map(f => {
+    if (!prev) { prev = f.pixels.slice(); return { ...f, changed: f.pixels.length }; }
+    const out = new Uint8Array(f.pixels.length);
+    let changed = 0;
+    for (let i = 0; i < f.pixels.length; i++) {
+      if (f.pixels[i] === prev[i]) out[i] = transparentIndex;
+      else { out[i] = f.pixels[i]; changed++; }
+    }
+    prev = f.pixels.slice();
+    return { ...f, pixels: out, changed };
+  });
+}
+
 export function buildFilm({
   file = 'session', events = [], skipped = 0, meta = 0,
   width = 800, rows = 12, frames: maxFrames = 48, delayCs = 8, scale = 2,
+  diff = true,
 } = {}) {
   if (!events.length) throw new Error('no events to film');
   const charW = ADVANCE * scale;
@@ -211,7 +238,13 @@ export function buildFilm({
     out.push({ pixels: cv.px, delayCs });
   }
 
-  return { width, height, palette: PALETTE, frames: out };
+  return {
+    width,
+    height,
+    palette: PALETTE,
+    frames: diff ? deltaFrames(out) : out,
+    transparent: diff ? TRANSPARENT : null,
+  };
 }
 
 /** Write the film to disk as an animated GIF. */
