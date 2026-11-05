@@ -4,21 +4,39 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
+// where this machine's sessions live, in override order: an explicit --root
+// flag → $TAPE_SESSIONS_DIR → ~/.claude/projects (the Claude Code home base).
+// grep and the no-arg picker share this so the 4 supported formats are all
+// reachable, not just claude-code.
+export function sessionsRoot(explicit) {
+  if (explicit) return explicit;
+  if (process.env.TAPE_SESSIONS_DIR) return process.env.TAPE_SESSIONS_DIR;
+  return join(homedir(), '.claude', 'projects');
+}
+
 export function scanSessions(root) {
   const out = [];
   let dirs = [];
   try { dirs = readdirSync(root, { withFileTypes: true }); } catch { return out; }
+  const add = path => {
+    try {
+      const st = statSync(path);
+      out.push({ path, mtime: st.mtimeMs, size: st.size, title: readTitle(path) });
+    } catch { /* unreadable — skip */ }
+  };
   for (const d of dirs) {
+    // the usual layout is <root>/<project>/<session>.jsonl (Claude Code), but a
+    // plain directory of *.jsonl works too — the other adapters write flat
+    if (d.isFile()) {
+      if (d.name.endsWith('.jsonl')) add(join(root, d.name));
+      continue;
+    }
     if (!d.isDirectory()) continue;
     let files = [];
     try { files = readdirSync(join(root, d.name)); } catch { continue; }
     for (const f of files) {
       if (!f.endsWith('.jsonl')) continue;
-      const path = join(root, d.name, f);
-      try {
-        const st = statSync(path);
-        out.push({ path, mtime: st.mtimeMs, size: st.size, title: readTitle(path) });
-      } catch { /* unreadable — skip */ }
+      add(join(root, d.name, f));
     }
   }
   return out.sort((a, b) => b.mtime - a.mtime);
@@ -45,7 +63,7 @@ const vis = s => String(s).replace(ANSI, '');
 const dim = s => `\x1b[2m${s}\x1b[0m`;
 const bold = s => `\x1b[1m${s}\x1b[0m`;
 
-export function createPicker(sessions) {
+export function createPicker(sessions, root = '~/.claude/projects') {
   const st = { sel: 0, done: false, w: 80, h: 24 };
   return {
     get result() { return st.done ? sessions[st.sel] : null; },
@@ -68,7 +86,7 @@ export function createPicker(sessions) {
         if (i === st.sel) row = `\x1b[7m${row.padEnd(w - 2)}\x1b[27m`;
         lines.push(row);
       }
-      lines.push(dim(`${sessions.length} session(s) under ~/.claude/projects`));
+      lines.push(dim(`${sessions.length} session(s) under ${root}`));
       while (lines.length < h) lines.push('');
       return lines.slice(0, h).map(l => (vis(l).length <= w ? l : vis(l).slice(0, w)));
     },

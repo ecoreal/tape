@@ -29,15 +29,15 @@ async function capture(argv) {
   }
 }
 
-test('tape adapters: human output lists every adapter + points at the spec and #1', async () => {
+test('tape adapters: human output lists every adapter + points at the spec', async () => {
   const { out, err, code } = await capture(['adapters']);
   assert.equal(err, '');
   assert.equal(code, 0);
   for (const a of ADAPTERS) assert.match(out, new RegExp(`\\b${a.name}\\b`));
   assert.match(out, /built-in/);
   assert.match(out, /docs\/adapter-spec\.md/);   // the community contract
-  assert.match(out, /OpenClaw/i);
-  assert.match(out, /issues\/1/);                // the OpenClaw ask
+  assert.match(out, /OpenClaw/i);                // shipped as built-in (issue #1)
+  assert.doesNotMatch(out, /wanted/i);           // …so it is no longer "wanted" right below
   // the table header aligns with the data
   assert.match(out, /name\s+status\s+fixture\s+test/);
 });

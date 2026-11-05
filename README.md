@@ -61,7 +61,7 @@ flowchart LR
     M -.->|"v0.5"| F
 ```
 
-The core knows nothing about files, terminals, or networks — which is why frames render identically in a TTY, in CI, and in this README. (Full design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md))
+The core knows nothing about files, terminals, or networks — which is why frames render identically in a TTY, in CI, and in this README. (Adapter contract: [docs/adapter-spec.md](docs/adapter-spec.md))
 
 ## 🚀 Quick Start (30 seconds, two commands)
 
@@ -74,6 +74,13 @@ Point it at a real session instead:
 
 ```bash
 tape ~/.claude/projects/<your-project>/<session>.jsonl
+```
+
+Sessions living elsewhere (OpenClaw / tape-native / generic dirs)? Point tape at them:
+
+```bash
+TAPE_SESSIONS_DIR=~/agent-sessions tape          # picker + grep scan there
+tape grep ECONNRESET --root ~/agent-sessions     # …or pass --root per command
 ```
 
 <details>

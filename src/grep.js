@@ -1,11 +1,12 @@
 // `tape grep <query>` — which of this machine's sessions mentioned X?
-import { scanSessions } from './picker.js';
+// Scans sessionsRoot() (a --root flag or $TAPE_SESSIONS_DIR forwarded from the
+// CLI), not just Claude Code's home, so every supported format is searchable.
+import { scanSessions, sessionsRoot } from './picker.js';
 import { parseFile } from './parse.js';
 import { match } from './render.js';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
 
-export function grepSessions(query, root = join(homedir(), '.claude', 'projects'), limit = 20) {
+export function grepSessions(query, root, limit = 20) {
+  root = sessionsRoot(root); // explicit --root → $TAPE_SESSIONS_DIR → ~/.claude/projects
   const hits = [];
   for (const s of scanSessions(root)) {
     let parsed;

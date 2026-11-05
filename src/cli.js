@@ -3,25 +3,23 @@ import { createApp } from './app.js';
 import { run } from './tui.js';
 import { writeDemo } from './demo.js';
 import { vis } from './render.js';
-import { scanSessions, createPicker } from './picker.js';
+import { scanSessions, createPicker, sessionsRoot } from './picker.js';
 import { renderStats, statsJson } from './stats.js';
-import { join } from 'node:path';
 const dim2 = s => `\x1b[2m${s}\x1b[0m`;
-import { homedir } from 'node:os';
 
 const VERSION = '0.1.0';
 
 const HELP = `⏪ tape ${VERSION} — time-travel debugger for AI agent sessions
 
 usage:
-  tape                           pick a session from ~/.claude/projects
+  tape                           pick a session — ~/.claude/projects or $TAPE_SESSIONS_DIR
   tape <file.jsonl>              open an interactive timeline (TUI)
   tape demo [out.jsonl]          write a sample session, then open-ready
   tape <file> --frame <n>        render frame at step n to stdout (headless)
                                  --width W --height H --plain (no colors)
   tape <file> --follow            tail a live session; stays at the tail
   tape <file> --filter tool_use   view-only filter to one event type
-  tape grep <query>               which local session mentioned X?
+  tape grep <query> [--root dir]  which local session mentioned X?
   tape diff <a.jsonl> <b.jsonl>   where did two runs of a task split?
   tape film <file>                arena storyboard: frames every N steps, paste-ready
   tape gif <file> [--out f.gif]   the session as an animated GIF (offline, no keys)
@@ -165,16 +163,21 @@ export async function main(argv) {
     for (const a of ADAPTERS) {
       console.log(`  ${a.name.padEnd(nameW)}  ${a.status.padEnd(statusW)}  ${a.fixture.padEnd(fixtureW)}  ${a.test}`);
     }
-    console.log(`\n  write your own: docs/adapter-spec.md · OpenClaw adapter wanted: github.com/ecoreal/tape/issues/1`);
+    console.log(`\n  write your own: docs/adapter-spec.md · missing a format? github.com/ecoreal/tape/issues`);
     return;
   }
   if (argv[0] === 'grep') {
     const args = argv.slice(1);
     const jsonMode = args.includes('--json');
-    const query = args.find(a => !a.startsWith('-'));
+    let query = null, root = null;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === '--root') root = args[++i];
+      else if (a !== '--json' && !a.startsWith('-') && query === null) query = a;
+    }
     if (!query) { console.error('tape grep: need a query — tape grep ECONNRESET'); process.exitCode = 1; return; }
     const { grepSessions, grepJson } = await import('./grep.js');
-    const hits = grepSessions(query);
+    const hits = grepSessions(query, root);
     if (jsonMode) { console.log(JSON.stringify(grepJson(hits))); return; } // no hits → []
     if (!hits.length) { console.log(`no local session mentions "${query}"`); return; }
     console.log(`"${query}" appears in ${hits.length} session(s):\n`);
@@ -214,7 +217,7 @@ export async function main(argv) {
     return;
   }
 
-  let file = null, frame = null, width = 0, height = 0, plain = false, follow = false, filter = null;
+  let file = null, frame = null, width = 0, height = 0, plain = false, follow = false, filter = null, root = null;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--frame') {
@@ -230,18 +233,20 @@ export async function main(argv) {
     else if (a === '--plain') plain = true;
     else if (a === '--follow') follow = true;
     else if (a === '--filter') filter = argv[++i];
+    else if (a === '--root') root = argv[++i]; // where sessions live (picker; also grep's default)
     else if (!a.startsWith('-') && file === null) file = a;
   }
   if (!file) {
-    // no file given: offer the sessions this machine already has
-    const sessions = scanSessions(join(homedir(), '.claude', 'projects'));
+    // no file given: offer the sessions this machine already has (the root is
+    // overridable for the other three formats: --root dir / $TAPE_SESSIONS_DIR)
+    const sessions = scanSessions(sessionsRoot(root));
     if (!sessions.length) { console.log(HELP); process.exitCode = 1; return; }
     if (!process.stdout.isTTY) {
       console.log('sessions found (run `tape <path>`):\n');
       sessions.slice(0, 15).forEach((s, i) => console.log(`  ${String(i + 1).padStart(2)} ${s.path}`));
       return;
     }
-    const picker = createPicker(sessions);
+    const picker = createPicker(sessions, sessionsRoot(root));
     await run(picker); // exits alt-screen after enter/q
     if (!picker.result) return; // q — user changed their mind
     file = picker.result.path;
