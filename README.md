@@ -1,16 +1,12 @@
 
 <div align="center">
 
-<!-- Logo 占位：替换为 480×120 的 PNG/DBG banner -->
-<!-- <img src="docs/banner.png" width="480" alt="tape logo" /> -->
-
-```
-   _______________
-  ⏪  tape          time-travel debugger
-   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾  for AI agent sessions
-```
+<img src="docs/banner.png" width="480" alt="tape — time-travel debugger for AI agent sessions" />
 
 **Your agent ran all night. Something broke at step 15. Which step was 15?**
+
+<img src="docs/demo.gif" width="640" alt="tape film — a 25-step agent session, replayable frame by frame" />
+<sub>↑ a real 25-step debugging session, replayed by <code>tape gif</code> — every frame is a step, offline, no keys</sub>
 
 [![CI](https://github.com/ecoreal/tape/actions/workflows/ci.yml/badge.svg)](https://github.com/ecoreal/tape/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/tape-replay?logo=npm&color=cb3837)](https://www.npmjs.com/package/tape-replay)
