@@ -1,0 +1,28 @@
+name: 🐛 Bug report
+description: Something broke — tell us what, where, how.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Exact command + output (redact anything private — tokens, real keys, paths with your name).
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options: ["Linux", "macOS", "Windows"]
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version (node -v)
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
