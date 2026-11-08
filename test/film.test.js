@@ -146,10 +146,19 @@ test('CLI: a missing file or a directory fails with one clean line, not a stack 
   assert.equal(missing.code, 1);
   assert.match(missing.out, /^tape: no such file/);
   assert.doesNotMatch(missing.out, /at .*node:fs/);
-  const dir = run(['gif', '/tmp']);
-  assert.equal(dir.code, 1);
-  assert.match(dir.out, /^tape: that is a directory/);
-  assert.doesNotMatch(dir.out, /at .*node:fs/);
+  // A REAL directory (not '/tmp', which only exists on unix) so the
+  // "that is a directory" branch is exercised on every platform.
+  const { mkdtempSync, rmSync: rm } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const realDir = mkdtempSync(j(tmpdir(), 'tape-dir-'));
+  try {
+    const dir = run(['gif', realDir]);
+    assert.equal(dir.code, 1);
+    assert.match(dir.out, /^tape: that is a directory/);
+    assert.doesNotMatch(dir.out, /at .*node:fs/);
+  } finally {
+    rm(realDir, { recursive: true, force: true });
+  }
 });
 
 test('deltaFrames: the first frame is complete, later frames carry only changes', () => {

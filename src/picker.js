@@ -86,7 +86,13 @@ export function createPicker(sessions, root = '~/.claude/projects') {
         if (i === st.sel) row = `\x1b[7m${row.padEnd(w - 2)}\x1b[27m`;
         lines.push(row);
       }
-      lines.push(dim(`${sessions.length} session(s) under ${root}`));
+      // The footer names the scanned root. On a narrow frame, clip the path's
+      // HEAD and keep its tail — the distinctive part lives at the end.
+      const flabel = `${sessions.length} session(s) under `;
+      const room = Math.max(1, w - 1 - flabel.length);
+      const vroot = vis(String(root));
+      const shown = vroot.length <= room ? root : '…' + vroot.slice(-(room - 1));
+      lines.push(dim(flabel + shown));
       while (lines.length < h) lines.push('');
       return lines.slice(0, h).map(l => (vis(l).length <= w ? l : vis(l).slice(0, w)));
     },

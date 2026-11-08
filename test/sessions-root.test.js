@@ -9,6 +9,7 @@ import { main } from '../src/cli.js';
 import { scanSessions, sessionsRoot, createPicker } from '../src/picker.js';
 import { vis } from '../src/render.js';
 import { writeFileSync, mkdirSync, mkdtempSync, rmSync, utimesSync } from 'node:fs';
+import { basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -131,10 +132,16 @@ test('$TAPE_SESSIONS_DIR routes tape grep and the no-arg picker', withHome(async
     assert.match(list.out, /sessions found/);
     assert.ok(list.out.includes(file), 'the flat session under $TAPE_SESSIONS_DIR is offered');
 
-    // the picker footer names the root it actually scanned
+    // the picker footer names the root it actually scanned — on narrow frames
+    // the path's head may be clipped, but its distinctive tail must survive
     const p = createPicker([{ path: file, mtime: 1, size: 10, title: '' }], dir);
     const footer = p.frame(80, 10).find(l => l.includes('session(s) under'));
-    assert.match(vis(footer), new RegExp(dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.ok(footer, 'footer line exists');
+    assert.match(
+      vis(footer),
+      new RegExp(basename(dir).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      'the scanned root (its unique tail) is named',
+    );
   } finally {
     process.stdout.isTTY = origTTY;
     rmSync(dir, { recursive: true, force: true });
