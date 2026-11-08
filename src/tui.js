@@ -54,18 +54,41 @@ export async function run(app) {
 
 // Terminals coalesce fast typing (and tmux/expect tools batch keystrokes):
 // one stdin chunk can carry MANY keys. Scan the whole buffer, in order.
+// CSI sequences are parsed properly (params 0x30–0x3F, intermediates 0x20–0x2F,
+// final 0x40–0x7E) so Windows Terminal's Delete/Home/End — and anything we
+// don't map, like mouse reports — never leak garbage chars into the TUI.
+const CSI_FINAL_KEYS = { 65: 'up', 66: 'down', 67: 'right', 68: 'left', 72: 'home', 70: 'end' };
+const CSI_TILDE_KEYS = { 49: 'home', 51: 'delete', 52: 'end', 53: 'pgup', 54: 'pgdn', 55: 'home', 56: 'end' };
+
 export function decodeKeys(b) {
   const out = [];
   for (let i = 0; i < b.length;) {
     if (b[i] === 27) {
-      if (b[i + 1] === 91) {
-        const c = b[i + 2];
-        if (c === 65) { out.push('up'); i += 3; continue; }
-        if (c === 66) { out.push('down'); i += 3; continue; }
-        if (c === 67) { out.push('right'); i += 3; continue; }
-        if (c === 68) { out.push('left'); i += 3; continue; }
-        if (c === 53) { out.push('pgup'); i += 4; continue; } // \x1b[5~
-        if (c === 54) { out.push('pgdn'); i += 4; continue; } // \x1b[6~
+      const csi = b[i + 1] === 91; // [
+      const ss3 = b[i + 1] === 79; // O — old-style arrows (PuTTY/ssh consoles)
+      if (csi || ss3) {
+        let j = i + 2;
+        if (ss3) {
+          const f = j < b.length ? b[j] : -1;
+          if (f >= 0x40 && f <= 0x7e) {
+            if (CSI_FINAL_KEYS[f]) out.push(CSI_FINAL_KEYS[f]);
+            i = j + 1; continue;
+          }
+          out.push('escape'); i += 1; continue;
+        }
+        while (j < b.length && ((b[j] >= 0x30 && b[j] <= 0x3f) || (b[j] >= 0x20 && b[j] <= 0x2f))) j++;
+        const final = j < b.length ? b[j] : -1;
+        if (final >= 0x40 && final <= 0x7e) {
+          const p1 = b[i + 2];
+          if (CSI_FINAL_KEYS[final]) out.push(CSI_FINAL_KEYS[final]);
+          else if (final === 126 && CSI_TILDE_KEYS[p1]) out.push(CSI_TILDE_KEYS[p1]);
+          // unknown CSI (mouse reports, focus events, win32-input-mode…) is
+          // swallowed whole: one blob, zero stray chars
+          i = j + 1; continue;
+        }
+        // truncated CSI at the chunk edge — swallow what we saw (the rest of
+        // the sequence arrives in the next chunk); never leak params as keys
+        i = j; continue;
       }
       out.push('escape'); i += 1; continue; // lone ESC
     }
